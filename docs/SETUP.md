@@ -90,13 +90,49 @@ that while Cloudflare proxies it.
    **grey-clouded** (DNS only).
 3. Wait for GitHub to report the certificate as issued.
 4. Switch the record to **orange-clouded**, and set SSL mode to **Full**.
-5. Add a cache rule bypassing cache for `/`, `*.html`, `*.js` and `*.css`, so a deploy is
-   not masked by a stale edge copy. Including the scripts matters: the HTML is tiny and
-   rarely the problem, but a fresh page paired with a ten minute old script is a version
-   skew, and the files here are small enough that caching them buys nothing worth the
-   risk.
+5. Deal with asset caching, below. No rule is needed for the HTML.
 
 Reversing 2 and 4 produces a certificate error that presents as a DNS problem.
+
+### Caching
+
+Check what is actually happening before changing anything:
+
+```bash
+for f in "" style.css app.js; do
+  curl -sI "https://sigh.holyhell.xyz/$f" | grep -iE 'cache-control|cf-cache-status'
+done
+```
+
+Cloudflare caches static extensions by default and does **not** cache HTML by default, so
+`.html` comes back `cf-cache-status: DYNAMIC` while `.css` and `.js` come back `HIT`. A
+cache rule for the HTML solves nothing; the skew risk is entirely in the assets.
+
+The four hour TTL is not GitHub's either. Pages sends `max-age=600` on everything, and
+Cloudflare's **Browser Cache TTL** setting defaults to 4 hours and overrides it. Two
+reasonable defaults combining into a four hour window in which a visitor can hold a
+mismatched set of files.
+
+Either fix works:
+
+- **Caching, Configuration, Browser Cache TTL, Respect Existing Headers.** Hands control
+  back to GitHub's ten minutes. One dropdown, shrinks the window by 24 times.
+- **A cache rule bypassing the assets**, which closes it entirely:
+
+  ```
+  If:   (http.host eq "sigh.holyhell.xyz" and (http.request.uri.path.extension in {"js" "css"}))
+  Then: Bypass cache
+  ```
+
+  Five files of a few KB on an edge that is already fast: nothing measurable is lost.
+
+Purge once after changing it (Caching, Configuration, Purge Everything) so anyone holding
+stale files gets the fix now rather than in four hours.
+
+Page scripts are ES modules, which is what keeps a skew from being fatal. Classic scripts
+share one global scope, so a cached older script beside a newer one can redeclare a name,
+and that is a SyntaxError which kills the whole file rather than a warning. Modules each
+get their own scope, so the worst case is unstyled rather than blank.
 
 ### Security headers
 
