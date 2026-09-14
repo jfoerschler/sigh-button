@@ -19,24 +19,31 @@
   },
 
   // Top level, not under "unsafe". Rate limiting graduated to a first-class binding; the
-  // old unsafe.bindings form still uploads and still shows up in `wrangler deploy`
-  // output, but limit() then returns success unconditionally, so the limiter fails open
-  // and silently does nothing.
+  // old unsafe.bindings form still uploads and still appears in `wrangler deploy` output,
+  // but limit() then returns success unconditionally.
+  //
+  // period must be 10 on a free account. A period of 60 deploys clean, prints the limit
+  // back, and enforces correctly under `wrangler dev` (which does not model plan
+  // entitlements), then silently never enforces in production. Both limits below are
+  // expressed per 10s for that reason, at the rates originally intended.
   "ratelimits": [
     {
-      // The control that actually matters. Keyed on the device hash, which is already in
-      // the payload, so it costs no extra identifying data.
+      // Keyed on the device hash. Note this is not an abuse control: the key arrives in
+      // the request body, so anyone inflating the count sends a fresh hash each time and
+      // never trips it. It stops one honest browser mashing, which is all it is for.
+      // 10 presses per 10s leaves room to mash; beyond that the client shows its gentle
+      // "that one is not counted" line rather than an error.
       "name": "DEVICE_LIMIT",
       "namespace_id": "1001",
-      "simple": { "limit": 10, "period": 60 }
+      "simple": { "limit": 10, "period": 10 }
     },
     {
-      // Deliberately loose. BU routes many people through few egress addresses, so a
-      // tight per-IP rule would read a whole building as one abusive client and refuse
-      // legitimate presses. This only catches a script on one machine.
+      // Deliberately loose (100/10s is the same rate as the 600/min originally wanted).
+      // BU routes many people through few egress addresses, so a tight per-IP rule would
+      // read a whole building as one abusive client and refuse legitimate presses.
       "name": "IP_LIMIT",
       "namespace_id": "1002",
-      "simple": { "limit": 600, "period": 60 }
+      "simple": { "limit": 100, "period": 10 }
     }
   ]
 

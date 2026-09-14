@@ -113,31 +113,40 @@ Two parts of that CSP are load bearing, and both fail quietly:
   browser with nothing shown in the interface.
 - **`frame-ancestors` must name Teams**, or the Teams tab renders blank with no error.
 
-### Rate limiting (needed: the Worker binding does not enforce here)
+### Rate limiting
 
-The Workers rate limiting bindings are configured and work under `wrangler dev`, where
-presses 11 onward correctly return 429. They do **not** enforce on the deployed Worker on
-this account: 45 presses from one device hash all passed a limit of 10 per minute.
+Both limiters use a period of **10 seconds**, because that is the only period a free
+account enforces. A period of 60 is worth knowing about as a trap: it passes validation,
+deploys clean, prints the limit back in `wrangler deploy` output, and enforces correctly
+under `wrangler dev`, which does not model plan entitlements. In production it silently
+never fires. Nothing errors and nothing logs.
 
-Until that is resolved, add a zone-level rate limiting rule instead, which is a separate
-and mature product. Security, WAF, Rate limiting rules:
+Current settings, at the rates originally intended:
+
+- `DEVICE_LIMIT`: 10 requests per 10s, keyed on the device hash
+- `IP_LIMIT`: 100 requests per 10s, keyed on the address
+
+The device limiter is **not** an abuse control, and should not be described as one. Its
+key arrives in the request body, so anyone inflating the count deliberately sends a fresh
+hash per request and never trips it. It exists to stop one honest browser mashing.
+Deliberate inflation is bounded by the IP limit and by the 25 per day per device cap
+enforced in Postgres, where the caller has no say.
+
+#### Optional: a zone rule as a second layer
+
+The Worker limiters are enough. If you want a layer that does not depend on the binding,
+add one under Security, WAF, Rate limiting rules:
 
 ```
 If: hostname equals sigh-worker.holyhell.xyz and URI path starts with /api/
-Then: block for 1 minute
-Rate: 600 requests per 1 minute, per IP
+Then: block for 10 seconds
+Rate: 100 requests per 10 seconds, per IP
 ```
 
-Keep it loose on purpose. BU routes many people through few egress addresses, so a tight
-per-IP rule reads a whole building as one abusive client and starts refusing real presses
-during exactly the busy moments the button is for. This is a volumetric backstop, not a
-precision control.
-
-What it does not replace, and does not need to: the per-device limiter was only ever
-protection against one honest browser mashing, because the device hash comes from the
-request body and anyone inflating the count deliberately would simply send a fresh one
-each time. The controls that actually bound deliberate inflation are this IP rule and the
-25 per day per device cap enforced in Postgres.
+Both the period and the block duration are capped at 10 seconds on a free account, the
+same restriction as the binding. Keep the rate loose: BU routes many people through few
+egress addresses, so a tight per-IP rule reads a whole building as one abusive client and
+refuses real presses during exactly the busy moments the button is for.
 
 ### Keepalive
 
