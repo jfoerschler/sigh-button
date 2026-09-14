@@ -402,3 +402,34 @@ a.wordmark:hover { color: var(--text); }
 .prose li { margin-bottom: 0.5rem; }
 .back { margin-top: 2rem; }
 .foot-links { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+
+/* ------------------------------------------------------------- the accent picker -- */
+
+.tint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;   /* tap target, R-03 */
+  cursor: pointer;
+  color: var(--text-soft);
+}
+.tint:hover { color: var(--text); }
+
+/*
+ * A native colour input, so the picker is the one the viewer already knows. Only the hue
+ * of their choice is kept: theme.js works out a lightness that meets the contrast target
+ * for each role, so no pick can make the interface unreadable.
+ */
+.tint input[type="color"] {
+  appearance: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  border: 1px solid var(--text-soft);   /* 6.64:1 and 8.08:1, clears the 3:1 boundary bar */
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.tint input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.tint input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+.tint input[type="color"]::-moz-color-swatch { border: none; border-radius: 50%; }

@@ -24,7 +24,6 @@ const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
 
 const KEY_PHRASE = 'sigh.phrase';
 const KEY_DEVICE = 'sigh.device';
-const KEY_THEME = 'sigh.theme';
 
 const el = (id) => document.getElementById(id);
 const gate = el('gate');
@@ -327,19 +326,6 @@ function showCounter() {
   loadCounter();
 }
 
-/* ------------------------------------------------------------------ theme --------- */
-
-function applyTheme(mode) {
-  const root = document.documentElement;
-  if (mode) root.dataset.theme = mode; else delete root.dataset.theme;
-
-  const dark = mode
-    ? mode === 'dark'
-    : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  el('theme-label').textContent = dark ? 'Light' : 'Dark';
-  el('theme').setAttribute('aria-pressed', String(dark));
-}
-
 /* ------------------------------------------------------------------ wiring -------- */
 
 /*
@@ -398,16 +384,6 @@ el('leave').addEventListener('click', () => {
   el('phrase').value = '';
   showGate(null);
 });
-
-el('theme').addEventListener('click', () => {
-  const current = document.documentElement.dataset.theme;
-  const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const next = current ? (current === 'dark' ? 'light' : 'dark') : (systemDark ? 'light' : 'dark');
-  write(KEY_THEME, next);
-  applyTheme(next);
-});
-
-applyTheme(read(KEY_THEME));
 
 phrase = read(KEY_PHRASE);
 if (phrase) showCounter(); else showGate(null);
