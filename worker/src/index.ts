@@ -6,10 +6,6 @@
  * shapes, throttles, and translates the phrase into a room key.
  */
 
-interface RateLimiter {
-  limit(options: { key: string }): Promise<{ success: boolean }>;
-}
-
 interface Env {
   /** Origin of the page, e.g. https://sigh.holyhell.xyz. Public, so a var rather than a secret. */
   PAGE_ORIGIN: string;
@@ -18,8 +14,8 @@ interface Env {
   /** Keeps a dump of the rooms table from being dictionary-attacked back into phrases. */
   ROOM_PEPPER: string;
   ADMIN_TOKEN: string;
-  DEVICE_LIMIT: RateLimiter;
-  IP_LIMIT: RateLimiter;
+  DEVICE_LIMIT: RateLimit;
+  IP_LIMIT: RateLimit;
 }
 
 /** Every failure the client can receive. It renders all of them gently: see web/app.js. */
