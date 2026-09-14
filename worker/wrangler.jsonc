@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sigh",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+
+  // Local development only. In production the Worker is bound to the route
+  // button.<domain>/api/*, so it never receives a request for a static file:
+  // GitHub Pages serves those. Pointing at web/ here means `wrangler dev` serves
+  // the page and the API on one origin, which is what production looks like.
+  "assets": { "directory": "../web" },
+
+  "unsafe": {
+    "bindings": [
+      {
+        // The control that actually matters. Keyed on the device hash, which is
+        // already in the payload, so it costs no extra identifying data.
+        "name": "DEVICE_LIMIT",
+        "type": "ratelimit",
+        "namespace_id": "1001",
+        "simple": { "limit": 10, "period": 60 }
+      },
+      {
+        // Deliberately loose. BU routes many people through few egress addresses,
+        // so a tight per-IP rule would read a whole building as one abusive client
+        // and start refusing real presses. This only catches a script on one machine.
+        "name": "IP_LIMIT",
+        "type": "ratelimit",
+        "namespace_id": "1002",
+        "simple": { "limit": 600, "period": 60 }
+      }
+    ]
+  }
+
+  // Secrets, set with `wrangler secret put`, never in this file:
+  //   SUPABASE_URL, SUPABASE_SERVICE_KEY, ROOM_PEPPER, ADMIN_TOKEN
+  //
+  // Production route, added once DNS is in place:
+  //   "routes": [{ "pattern": "button.<domain>/api/*", "zone_name": "<domain>" }]
+}
