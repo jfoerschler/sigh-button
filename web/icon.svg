@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sigh">
+  <!--
+    The identity motif: one weighted press and the ring it sends out.
+
+    Deliberately says nothing about what the app is for. It sits on a home screen next to
+    Mail and Slack, where a scream or a storm cloud would announce it every time the phone
+    is unlocked, undoing the discretion the page itself is built around.
+
+    Fixed to the default palette rather than the accent, because an installed icon cannot
+    follow a colour the viewer changes later.
+
+    Two shapes only, so the failure mode is graceful: the ring holds at 32px and merges
+    into the circle at 16px, leaving a clean deliberate shape rather than a smudge.
+  -->
+  <rect width="64" height="64" fill="#1D2A25"/>
+  <circle cx="32" cy="32" r="24" fill="none" stroke="#2F4239" stroke-width="3"/>
+  <circle cx="32" cy="32" r="14" fill="#3F574D"/>
+</svg>

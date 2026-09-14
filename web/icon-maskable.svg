@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sigh">
+  <!--
+    Maskable variant. Android crops an icon to whatever shape the launcher uses, keeping
+    only the middle 80%, so the artwork is scaled down to sit inside that safe zone. Using
+    icon.svg for this slot would clip the ring on a circular launcher.
+  -->
+  <rect width="64" height="64" fill="#1D2A25"/>
+  <g transform="translate(32 32) scale(0.8) translate(-32 -32)">
+    <circle cx="32" cy="32" r="24" fill="none" stroke="#2F4239" stroke-width="3"/>
+    <circle cx="32" cy="32" r="14" fill="#3F574D"/>
+  </g>
+</svg>

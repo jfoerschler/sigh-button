@@ -204,17 +204,25 @@ function renderHistory(payload) {
       ? `${day.day}: ${people} ${people === 1 ? 'person' : 'people'}, ${total} ${total === 1 ? 'press' : 'presses'}`
       : `${day.day}: too few to show`;
 
-    // Repeats first so they sit above people in the column.
-    if (repeats > 0) {
-      const top = document.createElement('span');
-      top.className = 'seg seg-repeat';
-      top.style.height = `${Math.round((repeats / peak) * 100)}%`;
-      bar.append(top);
+    if (total === 0) {
+      // Nothing happened, so mark the day without claiming anyone pressed.
+      const none = document.createElement('span');
+      none.className = 'seg seg-none';
+      none.style.height = '2px';
+      bar.append(none);
+    } else {
+      // Repeats first so they sit above people in the column.
+      if (repeats > 0) {
+        const top = document.createElement('span');
+        top.className = 'seg seg-repeat';
+        top.style.height = `${Math.round((repeats / peak) * 100)}%`;
+        bar.append(top);
+      }
+      const base = document.createElement('span');
+      base.className = 'seg seg-people';
+      base.style.height = `${Math.max(2, Math.round((people / peak) * 100))}%`;
+      bar.append(base);
     }
-    const base = document.createElement('span');
-    base.className = 'seg seg-people';
-    base.style.height = `${Math.max(2, Math.round((people / peak) * 100))}%`;
-    bar.append(base);
 
     bars.append(bar);
   }

@@ -343,6 +343,14 @@ body {
 .seg-people { background: var(--series-people); }
 .seg-repeat { background: var(--series-repeat); }
 
+/*
+ * A day with nothing on it. It gets a neutral baseline tick rather than the people
+ * colour, which the minimum-height guard was otherwise painting it: a 2px sliver of
+ * accent on a day nobody pressed reads as "one person", not as "none". Reusing a text
+ * token keeps the accent meaning exactly one thing, and adds no colour to verify.
+ */
+.seg-none { background: var(--text-soft); opacity: 0.3; }
+
 /* Today is marked by position, not by colour, since both colours now carry meaning. */
 .day[data-today="true"]::after {
   content: "";
