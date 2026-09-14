@@ -2,49 +2,64 @@
  * Palette values are verified, not eyeballed. Every pairing below was run through the
  * WCAG formula; ratios are recorded beside each one so a change has to re-earn them.
  *
+ * Cool and fresh on purpose. An earlier version was warm and muted, which collapsed into
+ * sepia: beige, brown and rust read as dated and, worse, as sad. The brief only ever
+ * asked for "nothing alarming at a glance", and this app exists to tell someone they are
+ * not alone on a bad afternoon. It should not look like a filing cabinet.
+ *
  * Light and dark are not mirror images. Light elevates the button with a dark fill on a
- * pale ground (8.07:1, clears the 3:1 component boundary on its own). Dark cannot do the
- * same trick: nudging a surface a few shades lighter than a dark ground tops out near
- * 1.76:1, so dark carries the elevation on a border instead (3.71:1).
+ * pale ground (11.80:1, clearing the 3:1 component bar on its own). The mirror of that in
+ * dark mode tops out near 1.16:1, so dark carries elevation on a border instead (4.82:1).
  */
 
 :root {
-  --ground:        #EFECE7;
-  --text:          #26231F;  /* 13.27:1 on ground */
-  --text-soft:     #5C564E;  /*  6.15:1 on ground */
-  --face:          #4A453D;  /*  8.07:1 on ground, so no border needed */
+  --ground:        #F3F5F4;
+  --text:          #15201D;  /* 15.27:1 on ground */
+  --text-soft:     #4A5A56;  /*  6.64:1 on ground, also the input border */
+  --face:          #24352F;  /* 11.80:1 on ground, so no border needed */
   --face-edge:     transparent;
-  --face-label:    #F2EFE9;  /*  8.28:1 on face */
-  --accent:        #8A4527;  /*  6.02:1 on ground */
-  --bar:           #7D7568;  /*  3.86:1 on ground */
-  --lift: 0 6px 16px rgba(38, 35, 31, 0.18);
-  --lift-pressed: 0 2px 5px rgba(38, 35, 31, 0.22);
+  --face-label:    #F1F6F4;  /* 11.83:1 on face */
+  --accent:        #0E7C68;  /*  4.68:1 on ground: text weight, so 4.5 applies */
+
+  /*
+   * Chart series. Colour follows importance rather than making two equal categories:
+   * people is the number that matters and wears the accent hue, repeat presses are the
+   * mashing on top and stay neutral. That also buys hue separation instead of fighting
+   * for lightness separation, which two steps of one hue could not win here.
+   */
+  --series-people: #00957B;  /*  3.43:1 on ground: graphic weight, so 3:1 applies */
+  --series-repeat: #565F5C;  /*  6.02:1 on ground; ΔE 15.8 from series-people */
+
+  --lift: 0 6px 16px rgba(21, 32, 29, 0.16);
+  --lift-pressed: 0 2px 5px rgba(21, 32, 29, 0.20);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ground:      #171614;
-    --text:        #E5E0D8;  /* 13.77:1 on ground */
-    --text-soft:   #A79E91;  /*  6.84:1 on ground */
-    --face:        #2A2723;
-    --face-edge:   #787066;  /*  3.71:1 on ground: this is what makes the button visible */
-    --face-label:  #E5E0D8;  /* 11.31:1 on face */
-    --accent:      #E09A71;  /*  7.78:1 on ground */
-    --bar:         #6E675D;  /*  3.24:1 on ground */
+    --ground:      #101614;
+    --text:        #E6EDEA;  /* 15.40:1 on ground */
+    --text-soft:   #9FB0AB;  /*  8.08:1 on ground */
+    --face:        #1B2522;
+    --face-edge:   #75877F;  /*  4.82:1 on ground: this is what makes the button visible */
+    --face-label:  #E6EDEA;  /* 13.24:1 on face */
+    --accent:      #4FD1B8;  /*  9.72:1 on ground */
+    --series-people: #4FD1B8;
+    --series-repeat: #77857F;  /* 4.75:1 on ground; ΔE 20.6 from series-people */
     --lift: 0 6px 18px rgba(0, 0, 0, 0.5);
     --lift-pressed: 0 2px 6px rgba(0, 0, 0, 0.55);
   }
 }
 
 :root[data-theme="dark"] {
-  --ground:      #171614;
-  --text:        #E5E0D8;
-  --text-soft:   #A79E91;
-  --face:        #2A2723;
-  --face-edge:   #787066;
-  --face-label:  #E5E0D8;
-  --accent:      #E09A71;
-  --bar:         #6E675D;
+  --ground:      #101614;
+  --text:        #E6EDEA;
+  --text-soft:   #9FB0AB;
+  --face:        #1B2522;
+  --face-edge:   #75877F;
+  --face-label:  #E6EDEA;
+  --accent:      #4FD1B8;
+  --series-people: #4FD1B8;
+  --series-repeat: #77857F;
   --lift: 0 6px 18px rgba(0, 0, 0, 0.5);
   --lift-pressed: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
@@ -276,24 +291,64 @@ body {
   color: var(--text-soft);
 }
 
+.legend {
+  display: flex;
+  gap: 1rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-soft);   /* labels wear text tokens, never the series colour */
+}
+.legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  flex: none;
+}
+.legend .swatch-people { background: var(--series-people); }
+.legend .swatch-repeat { background: var(--series-repeat); }
+
 .bars {
   display: flex;
   align-items: flex-end;
   gap: 2px;
   height: 4rem;
   width: 100%;
-  overflow: hidden;   /* bars only: no text is clipped here */
+  padding-bottom: 5px;   /* room for the today marker below the baseline */
+  overflow: hidden;      /* bars only: no text is clipped here */
 }
 
-.bars span {
+.day {
+  position: relative;
   flex: 1 1 0;
   min-width: 0;
-  min-height: 2px;
-  background: var(--bar);
-  border-radius: 1px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  /*
+   * The 2px surface gap is what lets a two-step ramp work here. Touching fills would
+   * have to clear 3:1 against each other, which two steps of one muted hue cannot do
+   * while also clearing 3:1 against the ground. Separated, each only borders the ground.
+   */
+  gap: 2px;
 }
-.bars span[data-weekend="true"] { opacity: 0.45; }
-.bars span[data-today="true"]   { background: var(--accent); }
+.day[data-weekend="true"] { opacity: 0.55; }
+
+.seg { border-radius: 1px; min-height: 2px; }
+.seg-people { background: var(--series-people); }
+.seg-repeat { background: var(--series-repeat); }
+
+/* Today is marked by position, not by colour, since both colours now carry meaning. */
+.day[data-today="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -5px;
+  height: 2px;
+  background: var(--text-soft);
+}
 
 .history-note {
   margin: 0.6rem 0 0;

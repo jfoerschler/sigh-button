@@ -183,60 +183,61 @@ function renderHistory(payload) {
 
   bars.replaceChildren();
 
-  const peak = days.reduce((max, day) => Math.max(max, day.uniques ?? 0), 0);
+  // Bar height is total presses; the base segment is people and the rest is repeats.
+  // Stacking uniques and total directly would double count, since every press past the
+  // first belongs to someone already in uniques.
+  const peak = days.reduce((max, day) => Math.max(max, day.total ?? 0), 0);
   if (peak === 0) {
+    bars.setAttribute('aria-label', 'No days to chart yet');
     note.textContent = 'Nothing to chart yet. Days appear once three people press on them.';
     return;
   }
 
   for (const day of days) {
+    const total = day.total ?? 0;
+    const people = day.uniques ?? 0;
+    const repeats = Math.max(0, total - people);
+
     const bar = document.createElement('span');
-    const value = day.uniques ?? 0;
-    bar.style.height = `${Math.max(2, Math.round((value / peak) * 100))}%`;
+    bar.className = 'day';
     const weekday = new Date(`${day.day}T12:00:00`).getDay();
     if (weekday === 0 || weekday === 6) bar.dataset.weekend = 'true';
     if (day.day === payload.today) bar.dataset.today = 'true';
+    bar.title = day.shown
+      ? `${day.day}: ${people} ${people === 1 ? 'person' : 'people'}, ${total} ${total === 1 ? 'press' : 'presses'}`
+      : `${day.day}: too few to show`;
+
+    // Repeats first so they sit above people in the column.
+    if (repeats > 0) {
+      const top = document.createElement('span');
+      top.className = 'seg seg-repeat';
+      top.style.height = `${Math.round((repeats / peak) * 100)}%`;
+      bar.append(top);
+    }
+    const base = document.createElement('span');
+    base.className = 'seg seg-people';
+    base.style.height = `${Math.max(2, Math.round((people / peak) * 100))}%`;
+    bar.append(base);
+
     bars.append(bar);
   }
 
-  const shown = days.filter((day) => day.shown).map((day) => day.uniques);
-  const median = shown.length
-    ? [...shown].sort((a, b) => a - b)[Math.floor(shown.length / 2)]
+  const shownDays = days.filter((day) => day.shown);
+  const todayRow = days.find((day) => day.day === payload.today);
+  bars.setAttribute(
+    'aria-label',
+    todayRow && todayRow.shown
+      ? `Daily counts for the last 90 days. Today: ${todayRow.uniques} people, ${todayRow.total} presses.`
+      : 'Daily counts for the last 90 days.',
+  );
+
+  const counts = shownDays.map((day) => day.uniques);
+  const median = counts.length
+    ? [...counts].sort((a, b) => a - b)[Math.floor(counts.length / 2)]
     : null;
   note.textContent = median === null
     ? 'Not enough days yet to compare against.'
     : `Typical day: ${median} ${median === 1 ? 'person' : 'people'}.`;
-}
-
-function ordinal(n) {
-  const lastTwo = n % 100;
-  if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;   // 11th, 12th, 13th, 111th
-
-  const lastOne = n % 10;
-  if (lastOne === 1) return `${n}st`;
-  if (lastOne === 2) return `${n}nd`;
-  if (lastOne === 3) return `${n}rd`;
-  return `${n}th`;
-}
-
-function rankMessage(data) {
-  // a repeat press today: already counted, no new fact
-  if (data.rank === null) {
-    return null;
-  }
-
-  // first of the day
-  if (data.rank === 1) {
-    return `You are ${ordinal(data.rank)}, but you are not alone. The day isn't over.`;
-  }
-
-  // rank exists but the count is hidden (fewer than 3 people so far)
-  if (data.suppressed) {
-    return `Others are with you in this.`;
-  }
-
-  // the payoff
-  return `You are the ${ordinal(data.rank)} person today. It is not just you.`;
 }
 
 /* ------------------------------------------------------------------ actions ------- */
