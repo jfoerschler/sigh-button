@@ -12,6 +12,16 @@
  *    or across groups.
  */
 
+/*
+ * The page is served from sigh.holyhell.xyz and the API from sigh-worker.holyhell.xyz,
+ * so every call is cross-origin. Development mirrors that rather than collapsing both
+ * onto one port: the page runs on :8788 and the Worker on :8787, so a CORS mistake
+ * fails here instead of surviving until production.
+ */
+const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
+  ? 'http://localhost:8787'
+  : 'https://sigh-worker.holyhell.xyz';
+
 const KEY_PHRASE = 'sigh.phrase';
 const KEY_DEVICE = 'sigh.device';
 const KEY_THEME = 'sigh.theme';
@@ -106,9 +116,15 @@ async function deviceHash() {
 /* ------------------------------------------------------------------ network ------- */
 
 async function api(path, body) {
-  const response = await fetch(path, {
+  const response = await fetch(API_BASE + path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    /*
+     * text/plain rather than application/json, deliberately. The CORS spec treats this
+     * as a simple request and skips the preflight, which would otherwise put an extra
+     * round trip in front of every press. The body is still JSON; the Worker reads it as
+     * text and parses it, so the header is only doing CORS work.
+     */
+    headers: { 'content-type': 'text/plain;charset=UTF-8' },
     body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));

@@ -5,11 +5,18 @@
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },
 
-  // Local development only. In production the Worker is bound to the route
-  // button.<domain>/api/*, so it never receives a request for a static file:
-  // GitHub Pages serves those. Pointing at web/ here means `wrangler dev` serves
-  // the page and the API on one origin, which is what production looks like.
-  "assets": { "directory": "../web" },
+  // Its own hostname, so calls from the page are cross-origin. The client sends them as
+  // simple requests (text/plain) so nothing preflights, and every reply carries
+  // access-control-allow-origin so the page may read it.
+  "routes": [
+    { "pattern": "sigh-worker.holyhell.xyz", "custom_domain": true }
+  ],
+
+  // Public, not a secret: it is the origin the page is served from, and the Worker both
+  // echoes it back as the allowed origin and rejects requests claiming anything else.
+  "vars": {
+    "PAGE_ORIGIN": "https://sigh.holyhell.xyz"
+  },
 
   "unsafe": {
     "bindings": [
@@ -24,7 +31,7 @@
       {
         // Deliberately loose. BU routes many people through few egress addresses,
         // so a tight per-IP rule would read a whole building as one abusive client
-        // and start refusing real presses. This only catches a script on one machine.
+        // and refuse legitimate presses. This only catches a script on one machine.
         "name": "IP_LIMIT",
         "type": "ratelimit",
         "namespace_id": "1002",
@@ -35,7 +42,4 @@
 
   // Secrets, set with `wrangler secret put`, never in this file:
   //   SUPABASE_URL, SUPABASE_SERVICE_KEY, ROOM_PEPPER, ADMIN_TOKEN
-  //
-  // Production route, added once DNS is in place:
-  //   "routes": [{ "pattern": "button.<domain>/api/*", "zone_name": "<domain>" }]
 }

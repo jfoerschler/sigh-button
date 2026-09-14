@@ -11,6 +11,8 @@ interface RateLimiter {
 }
 
 interface Env {
+  /** Origin of the page, e.g. https://sigh.holyhell.xyz. Public, so a var rather than a secret. */
+  PAGE_ORIGIN: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_KEY: string;
   /** Keeps a dump of the rooms table from being dictionary-attacked back into phrases. */
@@ -18,8 +20,6 @@ interface Env {
   ADMIN_TOKEN: string;
   DEVICE_LIMIT: RateLimiter;
   IP_LIMIT: RateLimiter;
-  /** Present only under `wrangler dev`; the production route never serves static files. */
-  ASSETS?: Fetcher;
 }
 
 /** Every failure the client can receive. It renders all of them gently: see web/app.js. */
@@ -29,8 +29,42 @@ const HEX64 = /^[a-f0-9]{64}$/;
 const MAX_BODY_BYTES = 2048;
 const MAX_PHRASE_LENGTH = 200;
 
-function fail(code: ErrorCode, status: number): Response {
-  return Response.json({ error: code }, { status });
+/*
+ * The page and the API are on different hostnames, so every reply needs this header or
+ * the browser refuses to let the page read it: the request would reach Postgres, write,
+ * and then reject in the client. Requests themselves avoid preflight by being sent as
+ * text/plain, which the CORS spec treats as a simple request.
+ */
+function cors(request: Request, env: Env): Record<string, string> {
+  const origin = request.headers.get('origin');
+  if (origin && isPageOrigin(origin, env)) {
+    return { 'access-control-allow-origin': origin, vary: 'Origin' };
+  }
+  return {};
+}
+
+/*
+ * Localhost is allowed alongside the real page origin so local development exercises the
+ * same cross-origin path production uses. Permitting it in production too is deliberate
+ * and near harmless: a page on the visitor's own localhost still cannot press anything
+ * without knowing the group phrase.
+ */
+function isPageOrigin(origin: string, env: Env): boolean {
+  return origin === env.PAGE_ORIGIN || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+}
+
+function fail(code: ErrorCode, status: number, headers: Record<string, string> = {}): Response {
+  return Response.json({ error: code }, { status, headers });
+}
+
+/*
+ * A simple request skips preflight, which also means the browser will send it without
+ * asking permission first. Checking Origin is what stops another site from driving a
+ * visitor's browser into writing here. Absent Origin is allowed so curl still works.
+ */
+function originAllowed(request: Request, env: Env): boolean {
+  const origin = request.headers.get('origin');
+  return origin === null || isPageOrigin(origin, env);
 }
 
 /**
@@ -96,25 +130,26 @@ async function callRpc(env: Env, fn: string, args: Record<string, unknown>) {
 }
 
 async function handlePush(request: Request, env: Env): Promise<Response> {
+  const headers = cors(request, env);
   const body = await readJson(request);
-  if (!body) return fail('bad_request', 400);
+  if (!body) return fail('bad_request', 400, headers);
 
   const phrase = body.phrase;
   const deviceHash = body.device_hash;
 
-  if (typeof phrase !== 'string' || typeof deviceHash !== 'string') return fail('bad_request', 400);
-  if (phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) return fail('bad_request', 400);
+  if (typeof phrase !== 'string' || typeof deviceHash !== 'string') return fail('bad_request', 400, headers);
+  if (phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) return fail('bad_request', 400, headers);
   // Rejected here so a malformed value never reaches Postgres, even though the function
   // checks the same pattern. Two cheap checks are worth one less thing to reason about.
-  if (!HEX64.test(deviceHash)) return fail('bad_request', 400);
+  if (!HEX64.test(deviceHash)) return fail('bad_request', 400, headers);
 
   const perDevice = await env.DEVICE_LIMIT.limit({ key: deviceHash });
-  if (!perDevice.success) return fail('rate_limited', 429);
+  if (!perDevice.success) return fail('rate_limited', 429, headers);
 
   const address = request.headers.get('cf-connecting-ip');
   if (address) {
     const perAddress = await env.IP_LIMIT.limit({ key: address });
-    if (!perAddress.success) return fail('rate_limited', 429);
+    if (!perAddress.success) return fail('rate_limited', 429, headers);
   }
 
   const result = await callRpc(env, 'push', {
@@ -122,8 +157,8 @@ async function handlePush(request: Request, env: Env): Promise<Response> {
     p_device_hash: deviceHash,
   });
 
-  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500);
-  return Response.json(result.data, { headers: { 'cache-control': 'no-store' } });
+  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500, headers);
+  return Response.json(result.data, { headers: { ...headers, 'cache-control': 'no-store' } });
 }
 
 /**
@@ -131,12 +166,13 @@ async function handlePush(request: Request, env: Env): Promise<Response> {
  * string lands in browser history, referrer headers, and every proxy log on the way.
  */
 async function handleHistory(request: Request, env: Env): Promise<Response> {
+  const headers = cors(request, env);
   const body = await readJson(request);
-  if (!body) return fail('bad_request', 400);
+  if (!body) return fail('bad_request', 400, headers);
 
   const phrase = body.phrase;
   if (typeof phrase !== 'string' || phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) {
-    return fail('bad_request', 400);
+    return fail('bad_request', 400, headers);
   }
 
   const requested = typeof body.days === 'number' ? body.days : 90;
@@ -147,23 +183,24 @@ async function handleHistory(request: Request, env: Env): Promise<Response> {
     p_days: days,
   });
 
-  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500);
-  return Response.json(result.data, { headers: { 'cache-control': 'no-store' } });
+  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500, headers);
+  return Response.json(result.data, { headers: { ...headers, 'cache-control': 'no-store' } });
 }
 
 /** Room creation is deliberately not self serve: see README on why typos must not open rooms. */
 async function handleCreateRoom(request: Request, env: Env): Promise<Response> {
+  const headers = cors(request, env);
   const presented = (request.headers.get('authorization') ?? '').replace(/^Bearer /, '');
   if (!env.ADMIN_TOKEN || !secureEquals(presented, env.ADMIN_TOKEN)) {
     return fail('not_found', 404);
   }
 
   const body = await readJson(request);
-  if (!body) return fail('bad_request', 400);
+  if (!body) return fail('bad_request', 400, headers);
 
   const phrase = body.phrase;
   if (typeof phrase !== 'string' || phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) {
-    return fail('bad_request', 400);
+    return fail('bad_request', 400, headers);
   }
 
   const result = await callRpc(env, 'create_room', {
@@ -177,8 +214,42 @@ async function handleCreateRoom(request: Request, env: Env): Promise<Response> {
 }
 
 export default {
+  /*
+   * Everything is wrapped, because an uncaught throw would be answered by the runtime's
+   * own 500, which carries none of the CORS headers below. Cross-origin, the browser
+   * rejects such a response before the page can read its status, so the client's gentle
+   * error path never runs and the user gets silence instead of an explanation.
+   */
   async fetch(request: Request, env: Env): Promise<Response> {
+    try {
+      return await route(request, env);
+    } catch (error) {
+      console.error('unhandled', error);
+      return fail('unavailable', 500, cors(request, env));
+    }
+  },
+} satisfies ExportedHandler<Env>;
+
+async function route(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url);
+
+    if (pathname.startsWith('/api/')) {
+      if (!originAllowed(request, env)) return fail('not_found', 404);
+
+      // Nothing should preflight, since the page sends simple requests. Answered anyway
+      // so a browser that decides to ask does not get a 404.
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            ...cors(request, env),
+            'access-control-allow-methods': 'POST, OPTIONS',
+            'access-control-allow-headers': 'content-type',
+            'access-control-max-age': '86400',
+          },
+        });
+      }
+    }
 
     if (request.method === 'POST') {
       if (pathname === '/api/push') return handlePush(request, env);
@@ -186,12 +257,13 @@ export default {
       if (pathname === '/api/room') return handleCreateRoom(request, env);
     }
 
-    // No CORS headers anywhere on purpose. The page and the API share an origin, so a
-    // cross-origin caller is not something to accommodate.
-    if (pathname.startsWith('/api/')) return fail('not_found', 404);
+    if (pathname.startsWith('/api/')) return fail('not_found', 404, cors(request, env));
 
-    // Local development only: wrangler serves web/ so dev matches production's single
-    // origin. In production the route is /api/*, so nothing else reaches this Worker.
-    return env.ASSETS ? env.ASSETS.fetch(request) : fail('not_found', 404);
-  },
-} satisfies ExportedHandler<Env>;
+    /*
+     * This Worker serves no static files, in development or production. The page comes
+     * from GitHub Pages at sigh.holyhell.xyz. An earlier version let wrangler serve web/
+     * here, which made local development same-origin while production is cross-origin,
+     * and that difference hid a CORS bug until it was curled for directly.
+     */
+    return fail('not_found', 404);
+}
