@@ -38,14 +38,34 @@ const KEY_THEME = 'sigh.theme';
 const KEY_HUE = 'sigh.hue';
 const KEY_SAT = 'sigh.sat';
 
+/*
+ * localStorage throws in more places than it looks: blocked site data, some private
+ * modes, and a cross-origin iframe under storage partitioning, which is what a Teams tab
+ * is. Without a fallback the theme is lost the instant it is set, and the symptom is
+ * baffling: the theme flips, applyAll re-reads storage, finds nothing, falls back to the
+ * system preference and snaps back, so the toggle appears not to work at all rather than
+ * appearing not to persist.
+ *
+ * Holding it in memory means the choice at least survives the session, which is what the
+ * old comment here claimed while doing nothing of the kind.
+ */
+const memory = new Map();
+
 function read(key) {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    const stored = localStorage.getItem(key);
+    return stored === null && memory.has(key) ? memory.get(key) : stored;
+  } catch {
+    return memory.get(key) ?? null;
+  }
 }
 function write(key, value) {
-  try { localStorage.setItem(key, value); } catch { /* private window: this session only */ }
+  memory.set(key, value);
+  try { localStorage.setItem(key, value); } catch { /* memory already holds it */ }
 }
 function forget(key) {
-  try { localStorage.removeItem(key); } catch { /* as above */ }
+  memory.delete(key);
+  try { localStorage.removeItem(key); } catch { /* memory already dropped it */ }
 }
 
 /* ------------------------------------------------------------------- colour ------- */
