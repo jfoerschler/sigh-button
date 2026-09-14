@@ -113,6 +113,32 @@ Two parts of that CSP are load bearing, and both fail quietly:
   browser with nothing shown in the interface.
 - **`frame-ancestors` must name Teams**, or the Teams tab renders blank with no error.
 
+### Rate limiting (needed: the Worker binding does not enforce here)
+
+The Workers rate limiting bindings are configured and work under `wrangler dev`, where
+presses 11 onward correctly return 429. They do **not** enforce on the deployed Worker on
+this account: 45 presses from one device hash all passed a limit of 10 per minute.
+
+Until that is resolved, add a zone-level rate limiting rule instead, which is a separate
+and mature product. Security, WAF, Rate limiting rules:
+
+```
+If: hostname equals sigh-worker.holyhell.xyz and URI path starts with /api/
+Then: block for 1 minute
+Rate: 600 requests per 1 minute, per IP
+```
+
+Keep it loose on purpose. BU routes many people through few egress addresses, so a tight
+per-IP rule reads a whole building as one abusive client and starts refusing real presses
+during exactly the busy moments the button is for. This is a volumetric backstop, not a
+precision control.
+
+What it does not replace, and does not need to: the per-device limiter was only ever
+protection against one honest browser mashing, because the device hash comes from the
+request body and anyone inflating the count deliberately would simply send a fresh one
+each time. The controls that actually bound deliberate inflation are this IP rule and the
+25 per day per device cap enforced in Postgres.
+
 ### Keepalive
 
 Add a Cloudflare Cron Trigger every few days that calls `/api/history` with any real
