@@ -275,13 +275,25 @@ body {
   pointer-events: none;
 }
 
+/*
+ * Engraved and paint filled, the way a control panel legend is actually made: the
+ * lettering is cut into the surface and the groove is filled with light pigment.
+ *
+ * That matters beyond the look. Cutting the glyph itself, dark on a dark cap, gives a
+ * fill contrast around 1.2:1, which would have made the word decoration and needed an
+ * exception to the 4.5:1 rule. Here the fill stays the light label token at 11.83:1 and
+ * 13.24:1, and the engraving is carried entirely by the edges: a groove wall around the
+ * glyph and a catch of light along its lower lip.
+ */
 .sigh-label {
   font-size: 1.25rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  /* Moulded into the face rather than printed on it. Shadow only, so the text colour and
-     its verified contrast are untouched. */
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-shadow:
+    -1px 0 0 rgba(0, 0, 0, 0.45),
+    1px 0 0 rgba(0, 0, 0, 0.45),
+    0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 2px 0 rgba(255, 255, 255, 0.12);
 }
 
 .sigh:disabled { opacity: 0.55; cursor: default; }
