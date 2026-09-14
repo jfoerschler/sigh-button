@@ -39,7 +39,7 @@
     },
     {
       // Deliberately loose (100/10s is the same rate as the 600/min originally wanted).
-      // BU routes many people through few egress addresses, so a tight per-IP rule would
+      // A large organisation routes many people through few egress addresses, so a tight
       // read a whole building as one abusive client and refuse legitimate presses.
       "name": "IP_LIMIT",
       "namespace_id": "1002",

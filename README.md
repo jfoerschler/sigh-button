@@ -15,7 +15,7 @@ Three things, and nothing else:
 3. A per-day, per-room hash of a random id your browser generated, with a count
 
 That is the entire database. To be explicit about what is *not* there: no names, no
-email addresses, no BU credentials, no IP addresses, and no timestamps more precise than
+email addresses, no account of any kind, no IP addresses, and no timestamps more precise than
 the day. Press times are left out on purpose, because "who else was online at 9:47pm" is
 identifying on a small team.
 
@@ -29,7 +29,7 @@ tell whether Monday's third presser is Tuesday's fifth. Salting by the room mean
 same browser is uncorrelatable across two different groups.
 
 There is deliberately no sign-in. A shared phrase identifies the *group*, which is a
-different thing from identifying the *person*. Signing in with BU credentials and storing
+different thing from identifying the *person*. Signing in with a work account and storing
 a hash of your email would not be anonymous: with a few dozen known coworkers, anyone
 holding those hashes and a staff directory can recompute all of them in about a second.
 Hashes only protect high-entropy inputs, which is why the design uses a random id instead
@@ -42,7 +42,7 @@ Said plainly, because a tool like this is worth less than nothing if it overclai
 - **Cloudflare sits in front as CDN and rate limiter**, and sees request metadata the way
   any CDN does. It is not storing it for us, and we do not receive it.
 - **Supabase hosts the database**, so they hold the rows described above.
-- **The person running this can read the database.** That is Jonathan Foerschler. The
+- **The person running this can read the database.** That is [jfoerschler](https://github.com/jfoerschler/sigh-button). The
   rows do not identify anyone, which is the protection; it is not that access is
   impossible.
 - **Small counts are revealing.** A count of 1 on a team of six is not very anonymous, so

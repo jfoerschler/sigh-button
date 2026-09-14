@@ -245,7 +245,7 @@ A zone block returns Cloudflare's own response. If the body reads
 `{"error":"rate_limited"}` that came from the Worker binding, not the rule, and the rule
 is still not matching. Once it fires, raise the rate to **100 per 10 seconds**.
 
-Keep the production rate loose. BU routes many people through few egress addresses, so a
+Keep the production rate loose. A large organisation routes many people through few egress addresses, so a
 tight per-IP rule reads a whole building as one abusive client and refuses real presses
 during exactly the busy moments the button exists for.
 
