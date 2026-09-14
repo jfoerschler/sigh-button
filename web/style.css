@@ -99,15 +99,10 @@ body {
   padding-top: max(1rem, env(safe-area-inset-top));
 }
 
-/* Keeps the toggle on the right whether or not a wordmark sits beside it. The counter
-   has none; the other pages keep theirs because it is their only way back. */
-.bar > .quiet { margin-left: auto; }
-
-.wordmark {
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-  color: var(--text-soft);
-}
+/* Holds the theme toggle against the right edge whether or not anything sits beside it.
+   Scoped to the toggle by id: a Back link in the same header is also .quiet, and an auto
+   margin on that would push it to the right as well. */
+.bar #theme { margin-left: auto; }
 
 .quiet {
   appearance: none;
@@ -465,8 +460,6 @@ body {
 
 /* Link colour reuses the verified text tokens rather than introducing a new blue. */
 a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-a.wordmark { color: var(--text-soft); text-decoration: none; }
-a.wordmark:hover { color: var(--text); }
 
 .prose {
   width: 100%;
