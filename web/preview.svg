@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="1200" height="1200">
+  <!--
+    Source for preview.png, the card that renders when the link is pasted into a chat.
+
+    Authored square with the 1200x630 card letterboxed in the middle, which is a
+    concession to the only rasteriser on hand. qlmanage always emits a square thumbnail
+    and fits the shorter dimension to it, so a 1200x630 source gets scaled about 1.9x and
+    clipped at both ends. Square in, square out, then crop the middle 630 back:
+
+      qlmanage -t -s 1200 -o . preview.svg
+      sips -c 630 1200 preview.svg.png (with the "out" flag) preview.png
+
+    Written that way because a double hyphen terminates an XML comment, so the real flag
+    cannot appear here literally. An earlier version had it and Quick Look rendered its
+    parse error page instead of the card.
+
+    Carries no number, deliberately. A count here would be a fabricated statistic in the
+    most shareable artifact the project has, and somebody would screenshot it as evidence.
+    The motif and the name only.
+  -->
+  <rect width="1200" height="1200" fill="#101614"/>
+
+  <g transform="translate(0 285)">
+    <g transform="translate(250 315)">
+      <circle r="112" fill="none" stroke="#2F4239" stroke-width="9"/>
+      <circle r="66" fill="#3F574D"/>
+    </g>
+    <!--
+      Two lines rather than one, and the whole block kept well inside the edges. A single
+      subtitle line at this size ran past 1200 and was cut mid word, and chat clients crop
+      previews to differing aspect ratios, so nothing should sit near a boundary.
+    -->
+    <text x="450" y="268" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+          font-size="96" font-weight="600" fill="#E6EDEA">Sigh</text>
+    <text x="452" y="336" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+          font-size="34" fill="#9FB0AB">A quiet shared counter</text>
+    <text x="452" y="382" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+          font-size="34" fill="#9FB0AB">for a bad day at work.</text>
+  </g>
+</svg>
