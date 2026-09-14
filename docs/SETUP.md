@@ -115,38 +115,65 @@ Two parts of that CSP are load bearing, and both fail quietly:
 
 ### Rate limiting
 
-Both limiters use a period of **10 seconds**, because that is the only period a free
-account enforces. A period of 60 is worth knowing about as a trap: it passes validation,
-deploys clean, prints the limit back in `wrangler deploy` output, and enforces correctly
-under `wrangler dev`, which does not model plan entitlements. In production it silently
-never fires. Nothing errors and nothing logs.
+Two layers, and it is worth knowing exactly what each one does, because measured
+behaviour differs from the documentation's impression.
 
-Current settings, at the rates originally intended:
+#### The Worker binding: best effort, counted per edge machine
 
-- `DEVICE_LIMIT`: 10 requests per 10s, keyed on the device hash
-- `IP_LIMIT`: 100 requests per 10s, keyed on the address
+`period` must be **10** seconds. A free account silently declines 60: it validates,
+deploys, prints the limit back in the bindings list, and enforces correctly under
+`wrangler dev`, which does not model plan entitlements. Production never fires it.
+Nothing errors and nothing logs.
 
-The device limiter is **not** an abuse control, and should not be described as one. Its
-key arrives in the request body, so anyone inflating the count deliberately sends a fresh
-hash per request and never trips it. It exists to stop one honest browser mashing.
-Deliberate inflation is bounded by the IP limit and by the 25 per day per device cap
-enforced in Postgres, where the caller has no say.
+Even with the right period, the counter is **per edge machine, not global**. Measured
+against the deployed Worker:
 
-#### Optional: a zone rule as a second layer
+| Traffic | Blocked |
+| --- | --- |
+| 200 parallel, same device hash | 6 |
+| 30 sequential, same device hash | 0 |
+| 200 parallel, unique hash each | 0 |
 
-The Worker limiters are enough. If you want a layer that does not depend on the binding,
-add one under Security, WAF, Rate limiting rules:
+Sequential requests are spread across machines, so each local counter stays under the
+limit. Treat this as a brake on one browser mashing hard, which is its actual job, and
+not as a ceiling you can rely on.
+
+#### The zone rule: the volumetric backstop
+
+Security, WAF, Rate limiting rules. Expression:
 
 ```
-If: hostname equals sigh-worker.holyhell.xyz and URI path starts with /api/
-Then: block for 10 seconds
-Rate: 100 requests per 10 seconds, per IP
+(http.host eq "sigh-worker.holyhell.xyz" and starts_with(http.request.uri.path, "/api/"))
 ```
 
-Both the period and the block duration are capped at 10 seconds on a free account, the
-same restriction as the binding. Keep the rate loose: BU routes many people through few
-egress addresses, so a tight per-IP rule reads a whole building as one abusive client and
-refuses real presses during exactly the busy moments the button is for.
+Counting characteristic: IP. Period and block duration are both capped at **10 seconds**
+on a free account.
+
+**Verify it fires before trusting it.** Set the rate deliberately low first, for example
+20 requests per 10 seconds, then send a burst:
+
+```bash
+seq 1 60 | xargs -P 10 -I{} curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST https://sigh-worker.holyhell.xyz/api/push \
+  -H 'content-type: text/plain' \
+  -d '{"phrase":"probe","device_hash":"'"$(printf '0%.0s' {1..64})"'"}'
+```
+
+A zone block returns Cloudflare's own response. If the body reads
+`{"error":"rate_limited"}` that came from the Worker binding, not the rule, and the rule
+is still not matching. Once it fires, raise the rate to **100 per 10 seconds**.
+
+Keep the production rate loose. BU routes many people through few egress addresses, so a
+tight per-IP rule reads a whole building as one abusive client and refuses real presses
+during exactly the busy moments the button exists for.
+
+#### What neither layer stops
+
+Someone with the phrase who sends a fresh device hash per request. `DEVICE_LIMIT` cannot
+catch it (the key is theirs to choose) and the IP rule only catches it at volume. This is
+accepted and stated plainly in `about.html`: the phrase is the real gate, and the counts
+that matter are bounded by the 25 per day per device cap in Postgres, where the caller
+has no say.
 
 ### Keepalive
 
