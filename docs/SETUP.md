@@ -94,6 +94,27 @@ that while Cloudflare proxies it.
 
 Reversing 2 and 4 produces a certificate error that presents as a DNS problem.
 
+### HTTPS
+
+Turn on **SSL/TLS, Edge Certificates, Always Use HTTPS**. This is not optional: over plain
+HTTP the app cannot work and fails in a way that reads as a server fault. An HTTP page
+sends a different origin than the configured one, so the Worker refuses the request, and
+even past that `crypto.subtle` is gated behind secure contexts, so the device hash could
+never be computed. `theme.js` upgrades the protocol client side as a backstop, but that
+costs a round trip and should never be the thing saving you.
+
+GitHub's own **Enforce HTTPS** toggle is likely greyed out as "not configured correctly",
+because GitHub cannot validate the domain to issue a certificate while Cloudflare proxies
+it. **You do not need it.** Cloudflare terminates TLS for visitors with its own
+certificate; GitHub's never reaches a browser. Its toggle only governs the leg between
+Cloudflare and GitHub, and that leg carries nothing sensitive: Pages serves only public
+static files, while the phrase and device hash go to the Worker on a different hostname
+over its own TLS.
+
+If you later want that leg on *Full (strict)*, that is when GitHub's certificate matters,
+and it needs the grey-cloud dance: set the record to DNS-only, wait for GitHub to issue,
+enable Enforce HTTPS, then re-proxy.
+
 ### Caching
 
 Check what is actually happening before changing anything:
