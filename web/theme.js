@@ -14,6 +14,26 @@
  * This is per viewer, in local storage. It changes nothing for anyone else.
  */
 
+/*
+ * Upgrade a plain HTTP load before anything else runs.
+ *
+ * Over HTTP this app cannot work at all, and fails in a way that looks like a server
+ * problem. The Worker rejects the request because an HTTP page sends a different origin
+ * than the configured one, so the page reports "cannot reach the counter". Even past
+ * that, `crypto.subtle` and `crypto.randomUUID` are gated behind secure contexts, so the
+ * device hash could never be computed: the privacy mechanism itself requires HTTPS.
+ *
+ * HSTS does not cover this. Browsers ignore it on HTTP responses by design, so it only
+ * arms after a successful HTTPS load, and a home screen shortcut saved with an http URL
+ * goes straight back to HTTP every time.
+ *
+ * Belt and braces alongside the edge redirect: the setting can be switched off by
+ * accident, and this failure is invisible to anyone who is not reading response headers.
+ */
+if (location.protocol === 'http:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+  location.replace(location.href.replace(/^http:/, 'https:'));
+}
+
 const KEY_THEME = 'sigh.theme';
 const KEY_HUE = 'sigh.hue';
 const KEY_SAT = 'sigh.sat';
