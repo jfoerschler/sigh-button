@@ -1,0 +1,7 @@
+# Cloudflare Worker
+.dev.vars
+.wrangler/
+node_modules/
+
+# macOS
+.DS_Store
