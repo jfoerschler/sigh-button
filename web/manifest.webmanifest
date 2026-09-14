@@ -1,0 +1,11 @@
+{
+  "name": "sigh",
+  "short_name": "sigh",
+  "description": "A quiet shared counter for a bad day at work.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EFECE7",
+  "theme_color": "#EFECE7"
+}

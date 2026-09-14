@@ -1,0 +1,325 @@
+/*
+ * Palette values are verified, not eyeballed. Every pairing below was run through the
+ * WCAG formula; ratios are recorded beside each one so a change has to re-earn them.
+ *
+ * Light and dark are not mirror images. Light elevates the button with a dark fill on a
+ * pale ground (8.07:1, clears the 3:1 component boundary on its own). Dark cannot do the
+ * same trick: nudging a surface a few shades lighter than a dark ground tops out near
+ * 1.76:1, so dark carries the elevation on a border instead (3.71:1).
+ */
+
+:root {
+  --ground:        #EFECE7;
+  --text:          #26231F;  /* 13.27:1 on ground */
+  --text-soft:     #5C564E;  /*  6.15:1 on ground */
+  --face:          #4A453D;  /*  8.07:1 on ground, so no border needed */
+  --face-edge:     transparent;
+  --face-label:    #F2EFE9;  /*  8.28:1 on face */
+  --accent:        #8A4527;  /*  6.02:1 on ground */
+  --bar:           #7D7568;  /*  3.86:1 on ground */
+  --lift: 0 6px 16px rgba(38, 35, 31, 0.18);
+  --lift-pressed: 0 2px 5px rgba(38, 35, 31, 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #171614;
+    --text:        #E5E0D8;  /* 13.77:1 on ground */
+    --text-soft:   #A79E91;  /*  6.84:1 on ground */
+    --face:        #2A2723;
+    --face-edge:   #787066;  /*  3.71:1 on ground: this is what makes the button visible */
+    --face-label:  #E5E0D8;  /* 11.31:1 on face */
+    --accent:      #E09A71;  /*  7.78:1 on ground */
+    --bar:         #6E675D;  /*  3.24:1 on ground */
+    --lift: 0 6px 18px rgba(0, 0, 0, 0.5);
+    --lift-pressed: 0 2px 6px rgba(0, 0, 0, 0.55);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #171614;
+  --text:        #E5E0D8;
+  --text-soft:   #A79E91;
+  --face:        #2A2723;
+  --face-edge:   #787066;
+  --face-label:  #E5E0D8;
+  --accent:      #E09A71;
+  --bar:         #6E675D;
+  --lift: 0 6px 18px rgba(0, 0, 0, 0.5);
+  --lift-pressed: 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ground);
+  color: var(--text);
+  /*
+   * System stack on purpose. This page has to answer a thumb in under 100ms from a phone
+   * home screen, and a webfont is a render-blocking request standing in front of that.
+   */
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible in both themes, and never removed without replacement. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+.wordmark {
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  color: var(--text-soft);
+}
+
+.quiet {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  margin: -0.5rem;
+  min-height: 44px;      /* tap target, R-03 */
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.quiet:hover { color: var(--text); }
+
+.screen {
+  flex: 1;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 0 1.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.screen[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- the phrase gate -- */
+
+.gate {
+  width: 100%;
+  margin-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.gate-title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.gate-note {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.field-label { font-size: 0.85rem; color: var(--text-soft); }
+
+.field input {
+  font: inherit;
+  padding: 0.75rem;
+  min-height: 44px;
+  color: var(--text);
+  background: var(--ground);
+  border: 1px solid var(--text-soft);   /* 6.15:1 and 6.84:1: clears the 3:1 boundary bar */
+  border-radius: 6px;
+  width: 100%;
+}
+
+.solid {
+  font: inherit;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 0.75rem 1.25rem;
+  color: var(--face-label);
+  background: var(--face);
+  border: 1px solid var(--face-edge);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.solid:disabled { opacity: 0.6; cursor: default; }
+
+/* Never colour alone: every notice carries its meaning in the words. */
+.notice {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  border-left: 3px solid var(--accent);
+  padding-left: 0.75rem;
+}
+
+/* ------------------------------------------------------------------- the counter -- */
+
+.today {
+  margin-top: 2.5rem;
+  text-align: center;
+}
+
+.count {
+  margin: 0;
+  font-size: clamp(3.5rem, 18vw, 5rem);
+  line-height: 1;
+  font-weight: 600;
+  /* Proportional digits change width as they roll, so the number visibly jitters. */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.count[data-state="loading"],
+.count[data-state="quiet"] { font-size: clamp(1.1rem, 5vw, 1.35rem); font-weight: 500; }
+
+.count-label {
+  margin: 0.35rem 0 0;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+/*
+ * The identity motif: one weighted press. It is the only element on the page with
+ * elevation and the only thing that animates.
+ */
+.sigh {
+  appearance: none;
+  margin: 2.25rem 0 0;
+  width: min(62vw, 15rem);
+  aspect-ratio: 1;
+  max-width: 100%;
+  border-radius: 50%;
+  border: 1px solid var(--face-edge);
+  background: var(--face);
+  color: var(--face-label);
+  box-shadow: var(--lift);
+  cursor: pointer;
+  position: relative;
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 180ms ease-out;
+}
+
+.sigh-label {
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.sigh:disabled { opacity: 0.55; cursor: default; }
+
+/* Bound to pointerdown in app.js, never to the network round trip. */
+.sigh[data-pressed="true"] {
+  transform: scale(0.96);
+  box-shadow: var(--lift-pressed);
+  transition-duration: 60ms;
+}
+
+/* The ring is the "it went somewhere" signal. One pulse per press, never a loop. */
+.sigh::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+.sigh[data-ripple="true"]::after {
+  animation: ring 560ms ease-out;
+}
+
+@keyframes ring {
+  from { opacity: 0.75; transform: scale(1); }
+  to   { opacity: 0;    transform: scale(1.22); }
+}
+
+.rank {
+  margin: 1.5rem 0 0;
+  min-height: 1.5rem;
+  text-align: center;
+  font-size: 1.05rem;
+  color: var(--accent);   /* the one deliberate accent, at the one moment it matters */
+}
+
+/* ------------------------------------------------------------------- the history -- */
+
+.history { width: 100%; margin-top: 3rem; }
+
+.history-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-soft);
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 4rem;
+  width: 100%;
+  overflow: hidden;   /* bars only: no text is clipped here */
+}
+
+.bars span {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2px;
+  background: var(--bar);
+  border-radius: 1px;
+}
+.bars span[data-weekend="true"] { opacity: 0.45; }
+.bars span[data-today="true"]   { background: var(--accent); }
+
+.history-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+.foot {
+  width: 100%;
+  margin-top: 2.5rem;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+/*
+ * Motion is the product here, so reduced motion is not "no feedback". The press still
+ * registers; it just stops springing and pulsing.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .sigh { transition: opacity 80ms linear; }
+  .sigh[data-pressed="true"] { transform: none; opacity: 0.7; }
+  .sigh[data-ripple="true"]::after { animation: none; }
+}
