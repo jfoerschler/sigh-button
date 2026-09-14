@@ -211,6 +211,18 @@ body {
   /* Proportional digits change width as they roll, so the number visibly jitters. */
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+  /*
+   * Tracking is applied after the last character too, so the laid-out box is narrower
+   * than the glyph's advance by that amount. Centring centres the box, which leaves the
+   * number sitting half the tracking to the right of the button below it: 0.8px at this
+   * size, small but visible on a numeral this large. Pulling the line back by half the
+   * tracking cancels the trailing space that has nothing after it to space from.
+   *
+   * The indent matches the tracking rather than halving it: under text-align centre an
+   * indent shortens the line box, so the text moves by half of it. Measured across
+   * values, -0.02em lands the glyph within 0.02px of the button's centre.
+   */
+  text-indent: -0.02em;
 }
 .count[data-state="loading"],
 .count[data-state="quiet"] { font-size: clamp(1.1rem, 5vw, 1.35rem); font-weight: 500; }
@@ -222,8 +234,13 @@ body {
 }
 
 /*
- * The identity motif: one weighted press. It is the only element on the page with
- * elevation and the only thing that animates.
+ * The identity motif: one weighted press. The only element on the page with elevation and
+ * the only thing that animates.
+ *
+ * Built as the same mark as the app icon: a circle inside a ring. Previously the icon had
+ * a ring and the button did not, so the thing on a home screen was not quite the thing
+ * being pressed. The ring also gives the ripple something to emanate from, so the
+ * animation reads as that ring pulsing outward rather than an arbitrary outline.
  */
 .sigh {
   appearance: none;
@@ -242,10 +259,29 @@ body {
               box-shadow 180ms ease-out;
 }
 
+/*
+ * A light source is what makes a surface read as pressable. A flat fill with centred text
+ * reads as a label on a disc; a rim and a highlight implying light from above read as a
+ * control. Both are static, so someone with motion reduced still gets a button that looks
+ * like a button rather than a degraded one.
+ */
+.sigh::before {
+  content: "";
+  position: absolute;
+  inset: -0.75rem;
+  border-radius: 50%;
+  border: 2px solid var(--text-soft);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .sigh-label {
   font-size: 1.25rem;
   font-weight: 500;
   letter-spacing: 0.06em;
+  /* Moulded into the face rather than printed on it. Shadow only, so the text colour and
+     its verified contrast are untouched. */
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
 }
 
 .sigh:disabled { opacity: 0.55; cursor: default; }
@@ -253,27 +289,33 @@ body {
 /* Bound to pointerdown in app.js, never to the network round trip. */
 .sigh[data-pressed="true"] {
   transform: scale(0.96);
-  box-shadow: var(--lift-pressed);
+  /* The face sinks: the outer lift collapses and an inner shadow appears, as though the
+     cap has travelled down into the rim. */
+  box-shadow: var(--lift-pressed), inset 0 4px 10px rgba(0, 0, 0, 0.32);
   transition-duration: 60ms;
 }
 
-/* The ring is the "it went somewhere" signal. One pulse per press, never a loop. */
+/*
+ * The ripple: the bezel ring travelling outward and fading. One pulse per press, never a
+ * loop. It starts at the ring rather than at the button edge so it continues the mark
+ * instead of appearing from nowhere.
+ */
 .sigh::after {
   content: "";
   position: absolute;
-  inset: -2px;
+  inset: -0.75rem;
   border-radius: 50%;
   border: 2px solid var(--accent);
   opacity: 0;
   pointer-events: none;
 }
 .sigh[data-ripple="true"]::after {
-  animation: ring 560ms ease-out;
+  animation: ring 620ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 @keyframes ring {
-  from { opacity: 0.75; transform: scale(1); }
-  to   { opacity: 0;    transform: scale(1.22); }
+  from { opacity: 0.8; transform: scale(1); }
+  to   { opacity: 0;   transform: scale(1.5); }
 }
 
 .rank {
@@ -385,9 +427,17 @@ body {
  * Motion is the product here, so reduced motion is not "no feedback". The press still
  * registers; it just stops springing and pulsing.
  */
+/*
+ * Motion is the product here, so reduced motion is not "no feedback". The press still
+ * registers and the button still looks like a button: the rim, the moulded label and the
+ * inner shadow are all static. What goes is the springing and the travelling ring.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .sigh { transition: opacity 80ms linear; }
-  .sigh[data-pressed="true"] { transform: none; opacity: 0.7; }
+  .sigh { transition: box-shadow 80ms linear; }
+  .sigh[data-pressed="true"] {
+    transform: none;
+    box-shadow: var(--lift-pressed), inset 0 4px 10px rgba(0, 0, 0, 0.32);
+  }
   .sigh[data-ripple="true"]::after { animation: none; }
 }
 
