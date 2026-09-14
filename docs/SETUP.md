@@ -90,8 +90,11 @@ that while Cloudflare proxies it.
    **grey-clouded** (DNS only).
 3. Wait for GitHub to report the certificate as issued.
 4. Switch the record to **orange-clouded**, and set SSL mode to **Full**.
-5. Add a cache rule bypassing cache for `/` and `*.html`, so a deploy is not masked by a
-   stale edge copy.
+5. Add a cache rule bypassing cache for `/`, `*.html`, `*.js` and `*.css`, so a deploy is
+   not masked by a stale edge copy. Including the scripts matters: the HTML is tiny and
+   rarely the problem, but a fresh page paired with a ten minute old script is a version
+   skew, and the files here are small enough that caching them buys nothing worth the
+   risk.
 
 Reversing 2 and 4 produces a certificate error that presents as a DNS problem.
 

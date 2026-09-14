@@ -1,5 +1,3 @@
-'use strict';
-
 /*
  * Theme and accent, shared by every page.
  *

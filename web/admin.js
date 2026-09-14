@@ -1,5 +1,3 @@
-'use strict';
-
 /*
  * Creating a group, from the browser instead of curl.
  *
