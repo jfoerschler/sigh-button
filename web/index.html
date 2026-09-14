@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>sigh</title>
+<title>Sigh</title>
 <meta name="description" content="A quiet shared counter for a bad day at work.">
 <meta name="color-scheme" content="light dark">
 <link rel="manifest" href="manifest.webmanifest">
@@ -12,27 +12,28 @@
 <body>
 
 <header class="bar">
-  <span class="wordmark">sigh</span>
+  <span class="wordmark">Sigh</span>
   <button type="button" id="theme" class="quiet" aria-pressed="false">
-    <span id="theme-label">dark</span>
+    <span id="theme-label">Dark</span>
   </button>
 </header>
 
 <!-- First visit, or after the phrase is cleared. -->
 <main id="gate" class="screen" hidden>
   <form id="gate-form" class="gate">
-    <h1 class="gate-title">what is your group's phrase?</h1>
+    <h1 class="gate-title">What is your group's phrase?</h1>
     <p class="gate-note">
-      one phrase for the whole group. it decides which counter you see, and it is the
+      One phrase for the whole group. It decides which counter you see, and it is the
       only thing that identifies you: no account, no name, no sign in.
     </p>
     <label class="field">
-      <span class="field-label">phrase</span>
+      <span class="field-label">Phrase</span>
       <input id="phrase" name="phrase" type="text" autocomplete="off" autocapitalize="none"
              spellcheck="false" maxlength="200" required>
     </label>
     <p id="gate-error" class="notice" role="alert" hidden></p>
-    <button type="submit" class="solid" id="gate-submit">open the counter</button>
+    <button type="submit" class="solid" id="gate-submit">Open the Counter</button>
+    <p class="gate-note"><a href="about.html">What This Stores, and What It Does Not</a></p>
   </form>
 </main>
 
@@ -41,25 +42,28 @@
 
   <section class="today" aria-labelledby="today-label">
     <p id="count" class="count" data-state="loading">&nbsp;</p>
-    <p id="today-label" class="count-label">checking</p>
+    <p id="today-label" class="count-label">Checking</p>
   </section>
 
   <button type="button" id="sigh" class="sigh" disabled>
-    <span class="sigh-label">sigh</span>
+    <span class="sigh-label">Sigh</span>
   </button>
 
   <!-- The rank arrives here. Announced, because it is the whole point of pressing. -->
   <p id="rank" class="rank" role="status" aria-live="polite">&nbsp;</p>
 
   <section class="history" aria-labelledby="history-label">
-    <h2 id="history-label" class="history-title">the last 90 days</h2>
-    <div id="bars" class="bars" role="img" aria-label="Daily counts for the last 90 days"></div>
+    <h2 id="history-label" class="history-title">The Last 90 Days</h2>
+    <div id="bars" class="bars" role="img" aria-label="Daily Counts for the Last 90 Days"></div>
     <p id="history-note" class="history-note">&nbsp;</p>
   </section>
 
   <footer class="foot">
-    <span id="reset-note">resets at midnight</span>
-    <button type="button" id="leave" class="quiet">use a different phrase</button>
+    <span id="reset-note">Resets at Midnight</span>
+    <span class="foot-links">
+      <a href="about.html">What This Stores</a>
+      <button type="button" id="leave" class="quiet">Use a Different Phrase</button>
+    </span>
   </footer>
 </main>
 

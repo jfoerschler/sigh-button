@@ -123,15 +123,15 @@ async function api(path, body) {
 function gentleMessage(code) {
   switch (code) {
     case 'rate_limited':
-      return 'still here. that one is not counted, but the day is.';
+      return 'Still here. That one is not counted, but the day is.';
     case 'no_room':
-      return 'no group has that phrase yet.';
+      return 'No group has that phrase yet.';
     case 'bad_request':
-      return 'something about that did not go through.';
+      return 'Something about that did not go through.';
     default:
       return navigator.onLine
-        ? 'cannot reach the counter right now.'
-        : 'you are offline. this one did not count.';
+        ? 'Cannot reach the counter right now.'
+        : 'You are offline. This one did not count.';
   }
 }
 
@@ -143,21 +143,21 @@ function renderToday(data) {
 
   if (data.suppressed) {
     count.dataset.state = 'quiet';
-    count.textContent = 'quiet so far';
-    label.textContent = 'counts appear once three people have pressed';
+    count.textContent = 'Quiet So Far';
+    label.textContent = 'Counts Appear Once Three People Have Pressed';
     return;
   }
 
   count.dataset.state = 'ready';
   count.textContent = String(data.uniques);
-  label.textContent = data.uniques === 1 ? 'person sighed today' : 'people sighed today';
+  label.textContent = data.uniques === 1 ? 'Person Sighed Today' : 'People Sighed Today';
 }
 
 // "America/New_York" reads as "new york"; a zone with no region part ("UTC") has no city
 // to pull out, so it is shown as given rather than crashing on a missing segment.
 function cityOf(timezone) {
   const parts = String(timezone ?? '').split('/');
-  return (parts.length > 1 ? parts[parts.length - 1] : parts[0]).replace(/_/g, ' ').toLowerCase();
+  return (parts.length > 1 ? parts[parts.length - 1] : parts[0]).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function renderHistory(payload) {
@@ -169,7 +169,7 @@ function renderHistory(payload) {
 
   const peak = days.reduce((max, day) => Math.max(max, day.uniques ?? 0), 0);
   if (peak === 0) {
-    note.textContent = 'nothing to chart yet. days appear once three people press on them.';
+    note.textContent = 'Nothing to chart yet. Days appear once three people press on them.';
     return;
   }
 
@@ -188,47 +188,52 @@ function renderHistory(payload) {
     ? [...shown].sort((a, b) => a - b)[Math.floor(shown.length / 2)]
     : null;
   note.textContent = median === null
-    ? 'not enough days yet to compare against.'
-    : `typical day: ${median} ${median === 1 ? 'person' : 'people'}.`;
+    ? 'Not enough days yet to compare against.'
+    : `Typical day: ${median} ${median === 1 ? 'person' : 'people'}.`;
 }
 
-// TODO(human): implement rankMessage(data)
-//
-// Turn a successful /api/push response into the line shown under the button, or null to
-// leave it blank. This is the emotional payload of the whole app, which is why it is
-// yours rather than mine.
-//
-// `data` looks like:
-//   { suppressed: boolean, uniques: number|null, total: number|null,
-//     rank: number|null, day: '2026-09-14', timezone: 'America/New_York' }
-//
-// The cases that matter:
-//   - rank === 1        being told you are "the 1st" reads lonely, which inverts the
-//                       point of the app. Use "first sigh today. it's early."
-//   - rank > 1          the payoff: this person is not alone. ordinals need care (2nd,
-//                       3rd, 11th, 21st).
-//   - rank === null     a repeat press today. already counted in uniques, so there is no
-//                       new fact and nothing to reward. the press should still have felt
-//                       good; consider returning null, or something that acknowledges
-//                       without pretending it was data.
-//   - data.suppressed   fewer than three people so far, so uniques and total are null and
-//                       rank may still be a number. decide whether a rank without a
-//                       visible count is reassuring or confusing.
+function ordinal(n) {
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;   // 11th, 12th, 13th, 111th
+
+  const lastOne = n % 10;
+  if (lastOne === 1) return `${n}st`;
+  if (lastOne === 2) return `${n}nd`;
+  if (lastOne === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
 function rankMessage(data) {
-  return null;
+  // a repeat press today: already counted, no new fact
+  if (data.rank === null) {
+    return null;
+  }
+
+  // first of the day
+  if (data.rank === 1) {
+    return `You are ${ordinal(data.rank)}, but you are not alone. The day isn't over.`;
+  }
+
+  // rank exists but the count is hidden (fewer than 3 people so far)
+  if (data.suppressed) {
+    return `Others are with you in this.`;
+  }
+
+  // the payoff
+  return `You are the ${ordinal(data.rank)} person today. It is not just you.`;
 }
 
 /* ------------------------------------------------------------------ actions ------- */
 
 async function loadCounter() {
   el('count').dataset.state = 'loading';
-  el('count').textContent = 'checking';
-  el('today-label').textContent = 'one moment';
+  el('count').textContent = 'Checking';
+  el('today-label').textContent = 'One Moment';
 
   try {
     const history = await api('/api/history', { phrase, days: 90 });
     renderHistory(history);
-    el('reset-note').textContent = `resets at midnight, ${cityOf(history.timezone)}`;
+    el('reset-note').textContent = `Resets at Midnight, ${cityOf(history.timezone)}`;
 
     const today = (history.days ?? []).find((day) => day.day === history.today);
     renderToday({
@@ -239,16 +244,16 @@ async function loadCounter() {
     button.disabled = false;
   } catch (error) {
     if (error.code === 'no_room') {
-      showGate('no group has that phrase yet. check the spelling with whoever shared it.');
+      showGate('No group has that phrase yet. Check the spelling with whoever shared it.');
       return;
     }
     el('count').dataset.state = 'quiet';
-    el('count').textContent = 'cannot load the count';
+    el('count').textContent = 'Cannot Load the Count';
     el('today-label').textContent = gentleMessage(error.code);
     // Without this the history strip is simply blank, which reads as "no one ever
     // pressed this" rather than "the chart could not load".
     el('bars').replaceChildren();
-    el('history-note').textContent = 'the chart will come back when the counter does.';
+    el('history-note').textContent = 'The chart will come back when the counter does.';
     // The button stays usable: a press still feels the same and is worth allowing.
     button.disabled = false;
   }
@@ -314,7 +319,7 @@ function applyTheme(mode) {
   const dark = mode
     ? mode === 'dark'
     : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  el('theme-label').textContent = dark ? 'light' : 'dark';
+  el('theme-label').textContent = dark ? 'Light' : 'Dark';
   el('theme').setAttribute('aria-pressed', String(dark));
 }
 
