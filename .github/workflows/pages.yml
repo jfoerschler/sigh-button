@@ -1,0 +1,37 @@
+# Publishes web/ to GitHub Pages.
+#
+# This is not a build step. It copies the committed files as they are, because Pages can
+# only serve a branch from / or /docs and the site lives in web/. Nothing is compiled,
+# minified, or generated: what is in the repo is byte for byte what is served, which is
+# the claim about.html makes to the people being counted.
+name: Publish the page
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
