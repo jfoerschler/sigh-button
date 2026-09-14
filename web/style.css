@@ -94,11 +94,14 @@ body {
 .bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.25rem;
   padding-top: max(1rem, env(safe-area-inset-top));
 }
+
+/* Keeps the toggle on the right whether or not a wordmark sits beside it. The counter
+   has none; the other pages keep theirs because it is their only way back. */
+.bar > .quiet { margin-left: auto; }
 
 .wordmark {
   font-size: 0.9rem;
