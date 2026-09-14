@@ -21,7 +21,8 @@ interface Env {
 }
 
 /** Every failure the client can receive. It renders all of them gently: see web/app.js. */
-type ErrorCode = 'bad_request' | 'no_room' | 'rate_limited' | 'unavailable' | 'not_found';
+type ErrorCode =
+  | 'bad_request' | 'no_room' | 'room_exists' | 'rate_limited' | 'unavailable' | 'not_found';
 
 const HEX64 = /^[a-f0-9]{64}$/;
 const MAX_BODY_BYTES = 2048;
@@ -64,8 +65,23 @@ const BASE_HEADERS: Record<string, string> = {
   'cache-control': 'no-store',
 };
 
-function fail(code: ErrorCode, status: number, headers: Record<string, string> = {}): Response {
-  return Response.json({ error: code }, { status, headers: { ...BASE_HEADERS, ...headers } });
+function fail(code: ErrorCode, status: number): Response {
+  return Response.json({ error: code }, { status });
+}
+
+/*
+ * Attached once, centrally, to everything leaving this Worker. An earlier version passed
+ * these through each handler as an optional argument, and a single forgotten argument
+ * produced a response that worked same-origin and failed cross-origin: the browser
+ * rejects a reply with no access-control-allow-origin before the page can read its
+ * status, so the client's error handling never runs. With 19 exit points that was a
+ * matter of time, and it happened twice.
+ */
+function withHeaders(response: Response, request: Request, env: Env): Response {
+  const out = new Response(response.body, response);
+  for (const [k, v] of Object.entries(BASE_HEADERS)) out.headers.set(k, v);
+  for (const [k, v] of Object.entries(cors(request, env))) out.headers.set(k, v);
+  return out;
 }
 
 /*
@@ -135,41 +151,41 @@ async function callRpc(env: Env, fn: string, args: Record<string, unknown>) {
   // raise deliberately are mapped; anything else is a fault on our side, not the user's.
   const detail = await response.text();
   if (detail.includes('no_room')) return { ok: false as const, code: 'no_room' as const };
+  if (detail.includes('room_exists')) return { ok: false as const, code: 'room_exists' as const };
   if (detail.includes('bad_request')) return { ok: false as const, code: 'bad_request' as const };
   console.error('rpc failed', fn, response.status, detail);
   return { ok: false as const, code: 'unavailable' as const };
 }
 
 async function handlePush(request: Request, env: Env): Promise<Response> {
-  const headers = cors(request, env);
   const body = await readJson(request);
-  if (!body) return fail('bad_request', 400, headers);
+  if (!body) return fail('bad_request', 400);
 
   const phrase = body.phrase;
   const deviceHash = body.device_hash;
 
-  if (typeof phrase !== 'string' || typeof deviceHash !== 'string') return fail('bad_request', 400, headers);
-  if (phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) return fail('bad_request', 400, headers);
+  if (typeof phrase !== 'string' || typeof deviceHash !== 'string') return fail('bad_request', 400);
+  if (phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) return fail('bad_request', 400);
   // Rejected here so a malformed value never reaches Postgres, even though the function
   // checks the same pattern. Two cheap checks are worth one less thing to reason about.
-  if (!HEX64.test(deviceHash)) return fail('bad_request', 400, headers);
+  if (!HEX64.test(deviceHash)) return fail('bad_request', 400);
 
   const perDevice = await env.DEVICE_LIMIT.limit({ key: deviceHash });
-  if (!perDevice.success) return fail('rate_limited', 429, headers);
+  if (!perDevice.success) return fail('rate_limited', 429);
 
   // Unconditional for the same reason as the admin path: a limiter that is skipped when
   // its key is missing is a limiter that can be absent exactly when it matters.
   const address = request.headers.get('cf-connecting-ip') ?? 'unknown';
   const perAddress = await env.IP_LIMIT.limit({ key: address });
-  if (!perAddress.success) return fail('rate_limited', 429, headers);
+  if (!perAddress.success) return fail('rate_limited', 429);
 
   const result = await callRpc(env, 'push', {
     p_room_key: await roomKey(phrase, env.ROOM_PEPPER),
     p_device_hash: deviceHash,
   });
 
-  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500, headers);
-  return Response.json(result.data, { headers: { ...BASE_HEADERS, ...headers } });
+  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500);
+  return Response.json(result.data);
 }
 
 /**
@@ -177,13 +193,12 @@ async function handlePush(request: Request, env: Env): Promise<Response> {
  * string lands in browser history, referrer headers, and every proxy log on the way.
  */
 async function handleHistory(request: Request, env: Env): Promise<Response> {
-  const headers = cors(request, env);
   const body = await readJson(request);
-  if (!body) return fail('bad_request', 400, headers);
+  if (!body) return fail('bad_request', 400);
 
   const phrase = body.phrase;
   if (typeof phrase !== 'string' || phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) {
-    return fail('bad_request', 400, headers);
+    return fail('bad_request', 400);
   }
 
   const requested = typeof body.days === 'number' ? body.days : 90;
@@ -194,13 +209,12 @@ async function handleHistory(request: Request, env: Env): Promise<Response> {
     p_days: days,
   });
 
-  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500, headers);
-  return Response.json(result.data, { headers: { ...BASE_HEADERS, ...headers } });
+  if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500);
+  return Response.json(result.data);
 }
 
 /** Room creation is deliberately not self serve: see README on why typos must not open rooms. */
 async function handleCreateRoom(request: Request, env: Env): Promise<Response> {
-  const headers = cors(request, env);
 
   /*
    * Throttled before the token is examined. Constant-time comparison stops timing
@@ -214,7 +228,7 @@ async function handleCreateRoom(request: Request, env: Env): Promise<Response> {
    */
   const address = request.headers.get('cf-connecting-ip') ?? 'unknown';
   const attempts = await env.DEVICE_LIMIT.limit({ key: `admin:${address}` });
-  if (!attempts.success) return fail('not_found', 404, headers);
+  if (!attempts.success) return fail('not_found', 404);
 
   const presented = (request.headers.get('authorization') ?? '').replace(/^Bearer /, '');
   if (!env.ADMIN_TOKEN || !secureEquals(presented, env.ADMIN_TOKEN)) {
@@ -222,11 +236,11 @@ async function handleCreateRoom(request: Request, env: Env): Promise<Response> {
   }
 
   const body = await readJson(request);
-  if (!body) return fail('bad_request', 400, headers);
+  if (!body) return fail('bad_request', 400);
 
   const phrase = body.phrase;
   if (typeof phrase !== 'string' || phrase.length === 0 || phrase.length > MAX_PHRASE_LENGTH) {
-    return fail('bad_request', 400, headers);
+    return fail('bad_request', 400);
   }
 
   const result = await callRpc(env, 'create_room', {
@@ -235,7 +249,7 @@ async function handleCreateRoom(request: Request, env: Env): Promise<Response> {
     p_timezone: typeof body.timezone === 'string' ? body.timezone : 'America/New_York',
   });
 
-  if (!result.ok) return fail(result.code, 500);
+  if (!result.ok) return fail(result.code, result.code === 'room_exists' ? 409 : 500);
   return Response.json(result.data);
 }
 
@@ -248,10 +262,10 @@ export default {
    */
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      return await route(request, env);
+      return withHeaders(await route(request, env), request, env);
     } catch (error) {
       console.error('unhandled', error);
-      return fail('unavailable', 500, cors(request, env));
+      return withHeaders(fail('unavailable', 500), request, env);
     }
   },
 } satisfies ExportedHandler<Env>;
@@ -268,9 +282,8 @@ async function route(request: Request, env: Env): Promise<Response> {
         return new Response(null, {
           status: 204,
           headers: {
-            ...cors(request, env),
             'access-control-allow-methods': 'POST, OPTIONS',
-            'access-control-allow-headers': 'content-type',
+            'access-control-allow-headers': 'authorization, content-type',
             'access-control-max-age': '86400',
           },
         });
@@ -283,7 +296,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       if (pathname === '/api/room') return handleCreateRoom(request, env);
     }
 
-    if (pathname.startsWith('/api/')) return fail('not_found', 404, cors(request, env));
+    if (pathname.startsWith('/api/')) return fail('not_found', 404);
 
     /*
      * This Worker serves no static files, in development or production. The page comes

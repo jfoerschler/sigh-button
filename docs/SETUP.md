@@ -205,6 +205,22 @@ back broken.
 
 ## 4. Create a group
 
+### From the website
+
+Open `https://sigh.holyhell.xyz/admin.html` and fill in the form. It is not linked from
+anywhere, but be clear about what that does and does not mean: a static host serves any
+path asked for, so the page is public. The admin code is the gate, not the filename. The
+Worker refuses a wrong code with the same 404 it gives an unknown path, and throttles the
+attempts, so guessing is slow and tells the guesser nothing.
+
+The code is held in memory for one submit and never written to storage or a URL.
+
+If the database was created before this existed, run `supabase/002-room-exists.sql` so a
+duplicate phrase reports as a duplicate instead of a server fault.
+
+### From the command line
+
+
 Rooms are not self serve, deliberately: a typo that silently opened an empty room would
 show someone a count of zero, which in this app reads as "you are the only one".
 

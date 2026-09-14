@@ -194,6 +194,11 @@ begin
   values (p_room_key, p_label, coalesce(p_timezone, 'America/New_York'))
   returning id into v_id;
   return json_build_object('id', v_id);
+exception
+  -- Named so the caller can say "that phrase is already taken" rather than reporting a
+  -- server fault for something the person can simply fix.
+  when unique_violation then
+    raise exception 'room_exists';
 end;
 $$;
 

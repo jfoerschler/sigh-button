@@ -159,7 +159,8 @@ body {
 .field { display: flex; flex-direction: column; gap: 0.4rem; }
 .field-label { font-size: 0.85rem; color: var(--text-soft); }
 
-.field input {
+.field input,
+.field select {
   font: inherit;
   padding: 0.75rem;
   min-height: 44px;
@@ -169,6 +170,9 @@ body {
   border-radius: 6px;
   width: 100%;
 }
+
+/* Native control, so the arrow and the open list follow the viewer's platform. */
+.field select { appearance: none; background-image: none; }
 
 .solid {
   font: inherit;

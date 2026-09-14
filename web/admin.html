@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sigh, Create a Group</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="wordmark" href="./">Sigh</a>
+</header>
+
+<main class="screen">
+  <form id="room-form" class="gate">
+    <h1 class="gate-title">Create a Group</h1>
+    <p class="gate-note">
+      A group is a phrase and a counter. Anyone who types the phrase sees that counter, so
+      treat it the way you would treat the key to a shared room.
+    </p>
+
+    <label class="field">
+      <span class="field-label">Admin Code</span>
+      <input id="code" type="password" autocomplete="off" required>
+    </label>
+    <p class="gate-note">Never stored. Closing this tab forgets it.</p>
+
+    <label class="field">
+      <span class="field-label">Group Phrase</span>
+      <input id="phrase" type="text" autocomplete="off" autocapitalize="none"
+             spellcheck="false" maxlength="200" required>
+    </label>
+    <p class="gate-note">
+      Capitalisation and extra spaces do not matter. Pick something people can say to each
+      other without writing it down.
+    </p>
+
+    <label class="field">
+      <span class="field-label">Label</span>
+      <input id="label" type="text" autocomplete="off" maxlength="80">
+    </label>
+    <p class="gate-note">For your own reference only. Nobody using the button sees it.</p>
+
+    <label class="field">
+      <span class="field-label">Day Resets At Midnight In</span>
+      <select id="timezone">
+        <option value="America/New_York" selected>New York</option>
+        <option value="America/Chicago">Chicago</option>
+        <option value="America/Denver">Denver</option>
+        <option value="America/Los_Angeles">Los Angeles</option>
+        <option value="Europe/London">London</option>
+        <option value="UTC">UTC</option>
+      </select>
+    </label>
+
+    <p id="result" class="notice" role="status" aria-live="polite" hidden></p>
+    <button type="submit" class="solid" id="submit">Create the Group</button>
+  </form>
+</main>
+
+<script src="admin.js"></script>
+</body>
+</html>
