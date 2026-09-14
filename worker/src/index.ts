@@ -9,6 +9,8 @@
 interface Env {
   /** Origin of the page, e.g. https://sigh.holyhell.xyz. Public, so a var rather than a secret. */
   PAGE_ORIGIN: string;
+  /** Extra origin accepted in development. Passed by `npm run dev`; never set in production. */
+  DEV_ORIGIN?: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_KEY: string;
   /** Keeps a dump of the rooms table from being dictionary-attacked back into phrases. */
@@ -40,17 +42,30 @@ function cors(request: Request, env: Env): Record<string, string> {
 }
 
 /*
- * Localhost is allowed alongside the real page origin so local development exercises the
- * same cross-origin path production uses. Permitting it in production too is deliberate
- * and near harmless: a page on the visitor's own localhost still cannot press anything
- * without knowing the group phrase.
+ * The dev origin comes from configuration, not from inspecting the request. `wrangler dev`
+ * reports request.url as the configured route hostname (sigh-worker.holyhell.xyz), not
+ * localhost, so anything that infers the environment from the hostname silently fails:
+ * development is deliberately indistinguishable from production on that axis.
+ *
+ * DEV_ORIGIN is passed by `npm run dev` and is never set on the deployed Worker, so the
+ * allowance cannot outlive development.
  */
 function isPageOrigin(origin: string, env: Env): boolean {
-  return origin === env.PAGE_ORIGIN || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+  return origin === env.PAGE_ORIGIN || (!!env.DEV_ORIGIN && origin === env.DEV_ORIGIN);
 }
 
+/*
+ * Applied to every response, including failures. These are cheap and the API is a
+ * different origin from the page, so the page's own headers do not cover it.
+ */
+const BASE_HEADERS: Record<string, string> = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+  'cache-control': 'no-store',
+};
+
 function fail(code: ErrorCode, status: number, headers: Record<string, string> = {}): Response {
-  return Response.json({ error: code }, { status, headers });
+  return Response.json({ error: code }, { status, headers: { ...BASE_HEADERS, ...headers } });
 }
 
 /*
@@ -142,11 +157,11 @@ async function handlePush(request: Request, env: Env): Promise<Response> {
   const perDevice = await env.DEVICE_LIMIT.limit({ key: deviceHash });
   if (!perDevice.success) return fail('rate_limited', 429, headers);
 
-  const address = request.headers.get('cf-connecting-ip');
-  if (address) {
-    const perAddress = await env.IP_LIMIT.limit({ key: address });
-    if (!perAddress.success) return fail('rate_limited', 429, headers);
-  }
+  // Unconditional for the same reason as the admin path: a limiter that is skipped when
+  // its key is missing is a limiter that can be absent exactly when it matters.
+  const address = request.headers.get('cf-connecting-ip') ?? 'unknown';
+  const perAddress = await env.IP_LIMIT.limit({ key: address });
+  if (!perAddress.success) return fail('rate_limited', 429, headers);
 
   const result = await callRpc(env, 'push', {
     p_room_key: await roomKey(phrase, env.ROOM_PEPPER),
@@ -154,7 +169,7 @@ async function handlePush(request: Request, env: Env): Promise<Response> {
   });
 
   if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500, headers);
-  return Response.json(result.data, { headers: { ...headers, 'cache-control': 'no-store' } });
+  return Response.json(result.data, { headers: { ...BASE_HEADERS, ...headers } });
 }
 
 /**
@@ -180,12 +195,27 @@ async function handleHistory(request: Request, env: Env): Promise<Response> {
   });
 
   if (!result.ok) return fail(result.code, result.code === 'no_room' ? 404 : 500, headers);
-  return Response.json(result.data, { headers: { ...headers, 'cache-control': 'no-store' } });
+  return Response.json(result.data, { headers: { ...BASE_HEADERS, ...headers } });
 }
 
 /** Room creation is deliberately not self serve: see README on why typos must not open rooms. */
 async function handleCreateRoom(request: Request, env: Env): Promise<Response> {
   const headers = cors(request, env);
+
+  /*
+   * Throttled before the token is examined. Constant-time comparison stops timing
+   * attacks but nothing was stopping repeated guessing, which left the only endpoint
+   * carrying a credential as the only one with no limit.
+   *
+   * Always throttled, never conditionally. Keying on an address that turned out to be
+   * absent would skip the limiter entirely, so an unknown address shares one bucket
+   * instead. Cloudflare always sets cf-connecting-ip in production and overwrites any
+   * client-supplied value, so the fallback should never be reached there.
+   */
+  const address = request.headers.get('cf-connecting-ip') ?? 'unknown';
+  const attempts = await env.DEVICE_LIMIT.limit({ key: `admin:${address}` });
+  if (!attempts.success) return fail('not_found', 404, headers);
+
   const presented = (request.headers.get('authorization') ?? '').replace(/^Bearer /, '');
   if (!env.ADMIN_TOKEN || !secureEquals(presented, env.ADMIN_TOKEN)) {
     return fail('not_found', 404);

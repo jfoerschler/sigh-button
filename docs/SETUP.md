@@ -99,12 +99,34 @@ Reversing 2 and 4 produces a certificate error that presents as a DNS problem.
 
 Add as a Cloudflare Transform Rule on `sigh.holyhell.xyz`:
 
+Create it under **Modify Response Header**, not Modify Request Header. The two tabs sit
+side by side with near-identical forms, and a request-header rule adds headers to the
+request Cloudflare sends to GitHub, where no browser will ever see them. It fails with no
+error and the dashboard still reports the rule as active.
+
 ```
-Content-Security-Policy: default-src 'self'; connect-src 'self' https://sigh-worker.holyhell.xyz; frame-ancestors 'self' teams.microsoft.com *.teams.microsoft.com
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self' https://sigh-worker.holyhell.xyz; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; frame-ancestors 'self' teams.microsoft.com *.teams.microsoft.com
+Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
 Strict-Transport-Security: max-age=31536000
 X-Content-Type-Options: nosniff
 Referrer-Policy: no-referrer
 ```
+
+The page loads no external scripts, fonts, styles or images, so every directive above can
+be `'self'` or `'none'` at no cost. Verified against the real page with these exact
+directives: zero violations.
+
+Two worth understanding rather than copying:
+
+- `form-action 'none'` is safe even though the gate is a form. The submit handler calls
+  `preventDefault`, so no navigation is ever attempted; the directive only blocks the
+  fallback navigation that would happen if the script failed to load, which is the
+  outcome you want anyway.
+- `base-uri 'none'` blocks an injected `<base>` tag from silently repointing every
+  relative URL on the page, including `app.js`.
+
+`includeSubDomains` is deliberately absent from HSTS. Adding it would commit every
+subdomain of holyhell.xyz to HTTPS-only, which reaches well beyond this project.
 
 Two parts of that CSP are load bearing, and both fail quietly:
 
