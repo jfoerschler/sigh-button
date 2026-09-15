@@ -14,8 +14,8 @@ three need your accounts, so they are yours to run.
    select * from pushes;
    ```
 
-   It must fail with a permissions error. If it returns rows, RLS did not apply and
-   nothing else in this document matters yet.
+   It must fail with a permissions error. If it returns rows, RLS did not apply, and
+   that needs fixing before anything else here.
 
 4. Copy the project URL and the **service role** key from Settings, API. The service role
    key bypasses RLS, so it belongs only in a Worker secret, never in the repo or the page.
@@ -56,13 +56,13 @@ npx wrangler deploy
 
 ## 3. DNS and routing
 
-Two hostnames:
+The page and the API live on separate hostnames:
 
 - `sigh.holyhell.xyz` serves the page, from GitHub Pages.
 - `sigh-worker.holyhell.xyz` serves `/api/*`, the Worker.
 
 They are different origins, so calls from the page are cross-origin. That is handled and
-costs nothing: the client sends simple requests (`text/plain`), which the CORS spec
+costs nothing. The client sends simple requests (`text/plain`), which the CORS spec
 exempts from preflight, and the Worker returns `access-control-allow-origin` so the page
 may read the reply.
 
@@ -96,12 +96,12 @@ Reversing 2 and 4 produces a certificate error that presents as a DNS problem.
 
 ### HTTPS
 
-Turn on **SSL/TLS, Edge Certificates, Always Use HTTPS**. This is not optional: over plain
-HTTP the app cannot work and fails in a way that reads as a server fault. An HTTP page
-sends a different origin than the configured one, so the Worker refuses the request, and
-even past that `crypto.subtle` is gated behind secure contexts, so the device hash could
-never be computed. `theme.js` upgrades the protocol client side as a backstop, but that
-costs a round trip and should never be the thing saving you.
+Turn on **SSL/TLS, Edge Certificates, Always Use HTTPS**. This one is not optional. Over
+plain HTTP the app cannot work, and it fails in a way that reads as a server fault. An
+HTTP page sends a different origin than the configured one, so the Worker refuses the
+request, and even past that `crypto.subtle` is gated behind secure contexts, so the device
+hash could never be computed. `theme.js` upgrades the protocol client side as a backstop,
+but that costs a round trip, so do not rely on it.
 
 GitHub's own **Enforce HTTPS** toggle is likely greyed out as "not configured correctly",
 because GitHub cannot validate the domain to issue a certificate while Cloudflare proxies
@@ -131,13 +131,13 @@ cache rule for the HTML solves nothing; the skew risk is entirely in the assets.
 
 The four hour TTL is not GitHub's either. Pages sends `max-age=600` on everything, and
 Cloudflare's **Browser Cache TTL** setting defaults to 4 hours and overrides it. Two
-reasonable defaults combining into a four hour window in which a visitor can hold a
+reasonable defaults combine into a four hour window in which a visitor can hold a
 mismatched set of files.
 
 Either fix works:
 
 - **Caching, Configuration, Browser Cache TTL, Respect Existing Headers.** Hands control
-  back to GitHub's ten minutes. One dropdown, shrinks the window by 24 times.
+  back to GitHub's ten minutes. One dropdown, and the window shrinks by a factor of 24.
 - **A cache rule bypassing the assets**, which closes it entirely:
 
   ```
@@ -145,7 +145,8 @@ Either fix works:
   Then: Bypass cache
   ```
 
-  Five files of a few KB on an edge that is already fast: nothing measurable is lost.
+  These are five files of a few KB on an edge that is already fast, so nothing
+  measurable is lost.
 
 Purge once after changing it (Caching, Configuration, Purge Everything) so anyone holding
 stale files gets the fix now rather than in four hours.
@@ -176,7 +177,7 @@ The page loads no external scripts, fonts, styles or images, so every directive 
 be `'self'` or `'none'` at no cost. Verified against the real page with these exact
 directives: zero violations.
 
-Two worth understanding rather than copying:
+`form-action` and `base-uri` both need a word of explanation:
 
 - `form-action 'none'` is safe even though the gate is a form. The submit handler calls
   `preventDefault`, so no navigation is ever attempted; the directive only blocks the
@@ -188,7 +189,7 @@ Two worth understanding rather than copying:
 `includeSubDomains` is deliberately absent from HSTS. Adding it would commit every
 subdomain of holyhell.xyz to HTTPS-only, which reaches well beyond this project.
 
-Two parts of that CSP are load bearing, and both fail quietly:
+That CSP has two load-bearing directives, and both fail quietly:
 
 - **`connect-src` must name the Worker origin.** It falls back to `default-src 'self'`,
   and the Worker is now a different origin, so without it every press is blocked by the
@@ -197,8 +198,8 @@ Two parts of that CSP are load bearing, and both fail quietly:
 
 ### Rate limiting
 
-Two layers, and it is worth knowing exactly what each one does, because measured
-behaviour differs from the documentation's impression.
+There are two layers here, and the measured behaviour differs from the impression the
+documentation gives.
 
 #### The Worker binding: best effort, counted per edge machine
 
@@ -245,9 +246,9 @@ A zone block returns Cloudflare's own response. If the body reads
 `{"error":"rate_limited"}` that came from the Worker binding, not the rule, and the rule
 is still not matching. Once it fires, raise the rate to **100 per 10 seconds**.
 
-Keep the production rate loose. A large organisation routes many people through few egress addresses, so a
-tight per-IP rule reads a whole building as one abusive client and refuses real presses
-during exactly the busy moments the button exists for.
+Keep the production rate loose. A large organisation routes many people through few
+egress addresses, so a tight per-IP rule reads a whole building as one abusive client and
+refuses real presses during exactly the busy moments the button exists for.
 
 #### What neither layer stops
 
@@ -268,8 +269,7 @@ back broken.
 ### From the website
 
 Open `https://sigh.holyhell.xyz/admin.html` and fill in the form. It is not linked from
-anywhere, but be clear about what that does and does not mean: a static host serves any
-path asked for, so the page is public. The admin code is the gate, not the filename. The
+anywhere, but a static host serves any path asked for, so the page is public anyway. The admin code is the gate, not the filename. The
 Worker refuses a wrong code with the same 404 it gives an unknown path, and throttles the
 attempts, so guessing is slow and tells the guesser nothing.
 
@@ -281,7 +281,7 @@ duplicate phrase reports as a duplicate instead of a server fault.
 ### From the command line
 
 
-Rooms are not self serve, deliberately: a typo that silently opened an empty room would
+Rooms are deliberately not self serve. A typo that silently opened an empty room would
 show someone a count of zero, which in this app reads as "you are the only one".
 
 ```bash
@@ -296,7 +296,8 @@ capitalization and spacing do not have to match exactly when people type it.
 
 ## Local development
 
-Two terminals, because development deliberately mirrors production's two origins:
+This needs two terminals, because development deliberately mirrors production's two
+origins:
 
 ```bash
 cd worker && npm run dev
@@ -315,7 +316,8 @@ Put the secrets in `worker/.dev.vars` (gitignored) to exercise the database loca
 
 ## What to check after deploying
 
-- No `OPTIONS` preflight in the network panel. Its absence is what proves the simple-request trick is working.
+- No `OPTIONS` preflight in the network panel. Its absence is what proves the
+  simple-request trick is working.
 - The security headers arrive: `curl -I https://sigh.holyhell.xyz/`.
 - A press succeeds from the real page. If it silently does nothing, check `connect-src`.
 - The Teams tab renders rather than showing a blank frame.

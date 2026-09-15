@@ -40,12 +40,12 @@
 
     <h1>What This Is</h1>
     <p>
-      A button you press when work is being work. It records that someone pressed it,
-      never who. The count is shared and resets every day.
+      A button you press when work is being work. A press adds to the count without
+      recording anything about you. The count is shared, and it resets every day.
     </p>
     <p>
-      The point is not the venting. The point is pressing it on a bad afternoon and
-      finding out that eleven other people pressed it too.
+      Press it on a bad afternoon and find out that eleven other people pressed it
+      too.
     </p>
 
     <h2>What Is Stored</h2>
@@ -56,16 +56,16 @@
       <li>A number, and a scrambled value your browser makes up that changes every day.</li>
     </ol>
     <p>
-      To be explicit about what is <em>not</em> there: no names, no email addresses, no
-      account of any kind, no IP addresses, and no times more precise than the day. Press
-      times are left out on purpose, because "who else was online at 9:47pm" is
-      identifying on a small team.
+      That is all of it. No names, no email addresses, no account of any kind, no IP
+      addresses, and no times more precise than the day. Press times are left out on
+      purpose, because "who else was online at 9:47pm" is identifying on a small team.
     </p>
 
     <h2>How That Stays Anonymous</h2>
     <p>
-      Your browser invents a random id once and keeps it. It is never sent. What gets
-      sent is a scrambled version of it mixed with today's date and your group phrase.
+      Your browser invents a random id once and keeps it. The id itself never leaves
+      your machine. What gets sent is a scrambled version of it, mixed with today's date
+      and your group phrase.
     </p>
     <p>
       Mixing in the date means the value is different every day, so the counter cannot
@@ -74,11 +74,10 @@
     </p>
     <p>
       There is deliberately no sign in. The phrase identifies the <em>group</em>, which
-      is a different thing from identifying <em>you</em>.
+      is a much weaker thing than identifying <em>you</em>.
     </p>
 
     <h2>What This Does Not Protect Against</h2>
-    <p>Said plainly, because a tool like this is worth nothing if it overclaims.</p>
     <ul>
       <li>
         Cloudflare sits in front of this as a content network, and sees request
@@ -87,8 +86,7 @@
       <li>Supabase hosts the database, so they hold the rows described above.</li>
       <li>
         Whoever runs this can read the database. That is <a href="https://github.com/jfoerschler/sigh-button">jfoerschler</a>.
-        The rows do not identify anyone, which is the protection. It is not that access is
-        impossible.
+        Nothing stops them. What protects you is that the rows do not identify anyone.
       </li>
       <li>
         Small counts say more than large ones, so nothing is shown until three people
@@ -103,13 +101,14 @@
 
     <h2>What It Will Never Be Used For</h2>
     <p>
-      Assessing any person or any team. There is no manager view, no export, and no
-      per person data to build one from. Everyone with the phrase sees the same number.
+      Assessing any person or any team. There is no manager view and no export, and no
+      per person data exists to build one from. Everyone with the phrase sees the same
+      number.
     </p>
     <p>
-      This is not an HR instrument and not a complaint channel. Nobody is notified,
-      nothing is escalated, and nothing here reaches anyone who could act on it. It is a
-      counter.
+      This is a counter. It is not an HR instrument or a complaint channel: nobody is
+      notified, nothing is escalated, and nothing here reaches anyone who could act on
+      it.
     </p>
 
     <h2>Reading the Code</h2>
