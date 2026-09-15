@@ -386,8 +386,14 @@ body {
   to   { opacity: 0;   transform: scale(1.5); }
 }
 
+/*
+ * The gap is measured to the rim, not to the button's box. The rim sits at inset -1.1rem
+ * with a 3px border, so it hangs about 20.6px below the box that carries this margin,
+ * and 1.5rem here left roughly 3px of visible air under the control. Matching .sigh's
+ * own top margin puts the same perceived gap above and below the button.
+ */
 .rank {
-  margin: 1.5rem 0 0;
+  margin: 2.25rem 0 0;
   min-height: 1.5rem;
   text-align: center;
   font-size: 1.05rem;
