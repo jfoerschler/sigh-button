@@ -120,6 +120,59 @@ body {
 }
 .quiet:hover { color: var(--text); }
 
+/*
+ * The group's phrase, in the corner the wordmark used to hold, under a cover until it is
+ * asked for. Anyone holding the phrase can inflate that group's count, so a tab left
+ * open should not hand it to whoever walks past or joins the screen share.
+ *
+ * Flex, so the cover is drawn on the span and sized by the span. Drawn on the button it
+ * would be a 44px slab, because the button carries the tap target. Sized by the button's
+ * own clipping it lost its right edge whenever the phrase ran past the cap, which reads
+ * as a broken box rather than a covered one. As a flex item the span can shrink below
+ * its own text and clip that instead, so the box closes at every width.
+ *
+ * The phrase is typed by whoever set the group up and may run to 200 characters, hence
+ * the cap: past that it would shove the theme toggle off a phone's header. Size and
+ * colour come from .quiet, so both ends of the bar match.
+ */
+.phrase-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: min(60%, 22rem);
+  text-decoration: none;   /* the cover is the affordance; an underline would read as a link */
+}
+
+#phrase-text {
+  min-width: 0;   /* a flex item will not shrink below its own text without this */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-radius: 2px;
+  /* Long enough to read as the cover coming off, short enough not to delay the answer. */
+  transition: color 120ms linear, background-color 120ms linear, box-shadow 120ms linear;
+}
+
+/*
+ * A hairline box with a faint fill rather than a solid strip. A cover sits there for as
+ * long as the tab is open, so it has to say "something is here, covered" without pulling
+ * the eye every time someone glances at the page. A solid bar in the phrase's own colour
+ * is heavier than the phrase it replaces.
+ *
+ * The 1px edge carries the 3:1 an affordance needs on its own (--text-soft is 6.64:1
+ * light, 8.08:1 dark) and the fill only lends body, which is why the fill may be dropped
+ * by an older browser without consequence: what hides the phrase is color: transparent,
+ * the clipped phrase's ellipsis along with it.
+ */
+.phrase-name[aria-pressed="false"] #phrase-text {
+  color: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-soft);
+  background: color-mix(in srgb, var(--text-soft) 16%, transparent);
+}
+.phrase-name[aria-pressed="false"]:hover #phrase-text {
+  background: color-mix(in srgb, var(--text-soft) 30%, transparent);
+}
+
 .screen {
   flex: 1;
   width: 100%;

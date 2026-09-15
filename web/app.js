@@ -27,6 +27,7 @@ const el = (id) => document.getElementById(id);
 const gate = el('gate');
 const counter = el('counter');
 const button = el('sigh');
+const phraseLabel = el('phrase-label');
 
 let phrase = null;
 let inFlight = false;
@@ -311,9 +312,29 @@ async function loadHistoryQuietly() {
 
 /* ------------------------------------------------------------------ screens ------- */
 
+/*
+ * The group's phrase sits in the corner where the wordmark used to, under a cover. It is
+ * only there alongside the counter: on the gate there is no phrase yet to show.
+ *
+ * Covered is the state on every load. A reveal answers "which group am I in again", and
+ * that is a question asked in a moment, not a preference worth storing.
+ */
+function coverPhrase() {
+  phraseLabel.setAttribute('aria-pressed', 'false');
+  phraseLabel.setAttribute('aria-label', "Show the group's phrase");
+}
+
+function setPhraseLabel(text) {
+  // textContent, never innerHTML. This is whatever someone typed.
+  el('phrase-text').textContent = text ?? '';
+  phraseLabel.hidden = !text;
+  coverPhrase();
+}
+
 function showGate(message) {
   phrase = null;
   forget(KEY_PHRASE);
+  setPhraseLabel(null);
   counter.hidden = true;
   gate.hidden = false;
   const error = el('gate-error');
@@ -327,6 +348,7 @@ function showGate(message) {
 }
 
 function showCounter() {
+  setPhraseLabel(phrase);
   gate.hidden = true;
   counter.hidden = false;
   loadCounter();
@@ -384,6 +406,16 @@ el('gate-form').addEventListener('submit', (event) => {
   phrase = typed;
   write(KEY_PHRASE, typed);
   showCounter();
+});
+
+phraseLabel.addEventListener('click', () => {
+  if (phraseLabel.getAttribute('aria-pressed') === 'true') {
+    coverPhrase();
+    return;
+  }
+  phraseLabel.setAttribute('aria-pressed', 'true');
+  // Uncovered, the phrase is its own label, so voice control can act on what it can see.
+  phraseLabel.removeAttribute('aria-label');
 });
 
 el('leave').addEventListener('click', () => {
