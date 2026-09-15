@@ -246,6 +246,39 @@ function renderHistory(payload) {
     : `Typical day: ${median} ${median === 1 ? 'person' : 'people'}.`;
 }
 
+function ordinal(n) {
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;   // 11th, 12th, 13th, 111th
+
+  const lastOne = n % 10;
+  if (lastOne === 1) return `${n}st`;
+  if (lastOne === 2) return `${n}nd`;
+  if (lastOne === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
+/*
+ * The line under the button after a press. A rank only comes back on the first press of
+ * a day, because a repeat press does not move the count of people, and a press that
+ * changed nothing should not claim it did.
+ */
+function rankMessage(data) {
+  // A repeat press today: already counted, so there is no new fact to report. Loose
+  // equality on purpose, since it covers the key being absent as well as null.
+  if (data.rank == null) return null;
+
+  if (data.rank === 1) {
+    return `You are ${ordinal(data.rank)}, but you are not alone. The day isn't over.`;
+  }
+
+  // A rank exists, but fewer than three people have pressed and the count is withheld.
+  // Naming the number here would undo the threshold that keeps a quiet day from
+  // pointing at the two or three people who had one.
+  if (data.suppressed) return 'Others are with you in this.';
+
+  return `You are the ${ordinal(data.rank)} person today. It is not just you.`;
+}
+
 /* ------------------------------------------------------------------ actions ------- */
 
 async function loadCounter() {
@@ -286,20 +319,31 @@ async function press() {
   if (inFlight) return;
   inFlight = true;
 
+  let data;
   try {
-    const data = await api('/api/push', { phrase, device_hash: await deviceHash() });
-    renderToday(data);
-    const message = rankMessage(data);
-    el('rank').textContent = message ?? ' ';
-    if (message) {
-      window.setTimeout(() => { el('rank').textContent = ' '; }, 4000);
-    }
-    loadHistoryQuietly();
+    data = await api('/api/push', { phrase, device_hash: await deviceHash() });
   } catch (error) {
     el('rank').textContent = gentleMessage(error.code);
+    return;
   } finally {
     inFlight = false;
   }
+
+  /*
+   * Rendering sits outside the try deliberately. It used to be inside, and when the two
+   * rank helpers were dropped by a refactor the ReferenceError landed in the same catch
+   * as a failed request: every press was still written to the database, and every press
+   * told the viewer the counter could not be reached. A fault in this file must not be
+   * reported as the network's fault, so the try guards only the request its message
+   * describes.
+   */
+  renderToday(data);
+  const message = rankMessage(data);
+  el('rank').textContent = message ?? ' ';
+  if (message) {
+    window.setTimeout(() => { el('rank').textContent = ' '; }, 4000);
+  }
+  loadHistoryQuietly();
 }
 
 async function loadHistoryQuietly() {
