@@ -259,13 +259,22 @@ function ordinal(n) {
 
 /*
  * The line under the button after a press. A rank only comes back on the first press of
- * a day, because a repeat press does not move the count of people, and a press that
- * changed nothing should not claim it did.
+ * a day, because a repeat press adds nobody to the count of people.
+ *
+ * It still gets a line. Without one the second press of a day looked like a dead button:
+ * the number above counts people rather than presses, so it correctly did not move, and
+ * viewers read the stillness as breakage. The press is real and it is recorded, so the
+ * line says that much without claiming a person was added.
  */
 function rankMessage(data) {
-  // A repeat press today: already counted, so there is no new fact to report. Loose
-  // equality on purpose, since it covers the key being absent as well as null.
-  if (data.rank == null) return null;
+  // A repeat press today. It joins the day's presses, which is what the repeat segment
+  // of today's bar is made of, and adds nobody to the number of people. Loose equality
+  // on purpose, since it covers the key being absent as well as null.
+  //
+  // Kept under 335px at 1.05rem, which is the line width at 375px. This is the one
+  // message that can fire on every press, so a longer line would wrap and bounce the
+  // chart down and back on each one, which is the opposite of the reassurance it is for.
+  if (data.rank == null) return 'Counted again. Some days need a few.';
 
   if (data.rank === 1) {
     return `You are ${ordinal(data.rank)}, but you are not alone. The day isn't over.`;
