@@ -28,9 +28,16 @@ const gate = el('gate');
 const counter = el('counter');
 const button = el('sigh');
 const phraseLabel = el('phrase-label');
+const bars = el('bars');
 
 let phrase = null;
 let inFlight = false;
+
+// What the chart is currently showing, and the note it goes back to once nobody is
+// reading a single day. Kept in step with the bars: one row per bar, same order.
+let dayRows = [];
+let restingNote = '\u00a0';
+let readingTimer = null;
 
 /* ------------------------------------------------------------------ storage ------- */
 
@@ -174,8 +181,25 @@ function cityOf(timezone) {
   return (parts.length > 1 ? parts[parts.length - 1] : parts[0]).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/*
+ * One day, in words. This is what the title attribute used to carry, and the reason it
+ * moved: 90 days across the chart is 3.6px per bar on a desktop and 1.73px on a phone,
+ * so a native tooltip asks for a mouse landed on a sliver and held there, and on a touch
+ * screen it never fires at all. The figures were unreadable in practice.
+ */
+function readoutFor(day) {
+  if (!day.shown) return `${day.day}: too few to show yet`;
+
+  const people = day.uniques ?? 0;
+  const total = day.total ?? 0;
+  // Plainer than "0 people, 0 presses", which most of a quiet room's 90 days would say.
+  if (total === 0) return `${day.day}: nobody pressed`;
+
+  return `${day.day}: ${people} ${people === 1 ? 'person' : 'people'}, `
+       + `${total} ${total === 1 ? 'press' : 'presses'}`;
+}
+
 function renderHistory(payload) {
-  const bars = el('bars');
   const note = el('history-note');
   const days = payload.days ?? [];
 
@@ -187,7 +211,10 @@ function renderHistory(payload) {
   const peak = days.reduce((max, day) => Math.max(max, day.total ?? 0), 0);
   if (peak === 0) {
     bars.setAttribute('aria-label', 'No days to chart yet');
-    note.textContent = 'Nothing to chart yet. A quiet day appears here once it is past.';
+    restingNote = 'Nothing to chart yet. A quiet day appears here once it is past.';
+    note.textContent = restingNote;
+    // No bars, so there is nothing to scrub. Emptied here or an index would outlive them.
+    dayRows = [];
     return;
   }
 
@@ -201,9 +228,6 @@ function renderHistory(payload) {
     const weekday = new Date(`${day.day}T12:00:00`).getDay();
     if (weekday === 0 || weekday === 6) bar.dataset.weekend = 'true';
     if (day.day === payload.today) bar.dataset.today = 'true';
-    bar.title = day.shown
-      ? `${day.day}: ${people} ${people === 1 ? 'person' : 'people'}, ${total} ${total === 1 ? 'press' : 'presses'}`
-      : `${day.day}: too few to show yet`;
 
     if (total === 0) {
       // Nothing happened, so mark the day without claiming anyone pressed.
@@ -230,11 +254,14 @@ function renderHistory(payload) {
 
   const shownDays = days.filter((day) => day.shown);
   const todayRow = days.find((day) => day.day === payload.today);
+  // The chart is one tab stop, so the label has to say what the arrows do. Nothing else
+  // on the page announces it.
+  const reading = 'Use the left and right arrow keys to read a single day.';
   bars.setAttribute(
     'aria-label',
     todayRow && todayRow.shown
-      ? `Daily counts for the last 90 days. Today: ${todayRow.uniques} people, ${todayRow.total} presses.`
-      : 'Daily counts for the last 90 days.',
+      ? `Daily counts for the last 90 days. Today: ${todayRow.uniques} people, ${todayRow.total} presses. ${reading}`
+      : `Daily counts for the last 90 days. ${reading}`,
   );
 
   // Days nobody pressed are disclosed now that past days are, and counting them here
@@ -244,9 +271,11 @@ function renderHistory(payload) {
   const median = counts.length
     ? [...counts].sort((a, b) => a - b)[Math.floor(counts.length / 2)]
     : null;
-  note.textContent = median === null
+  restingNote = median === null
     ? 'Not enough days yet to compare against.'
     : `Typical day: ${median} ${median === 1 ? 'person' : 'people'}.`;
+  note.textContent = restingNote;
+  dayRows = days;
 }
 
 function ordinal(n) {
@@ -453,6 +482,122 @@ button.addEventListener('click', () => {
   }
   fromPointer = false;
   press();
+});
+
+/*
+ * Reading one day out of the chart.
+ *
+ * The bars are 3.6px wide on a desktop and 1.73px on a phone, so picking one is not a
+ * hit test anyone can win. You drag across the chart instead and the line underneath
+ * follows your finger, which turns 90 unhittable targets into one gesture. The same
+ * handler serves a mouse hovering across.
+ *
+ * The reading replaces the typical-day note rather than adding a line, so nothing below
+ * the chart moves while you scrub.
+ */
+function showDay(index) {
+  if (!dayRows.length) return;
+  const i = Math.min(dayRows.length - 1, Math.max(0, index));
+
+  window.clearTimeout(readingTimer);
+  readingTimer = null;
+
+  for (const [n, bar] of [...bars.children].entries()) {
+    if (n === i) bar.dataset.reading = 'true';
+    else delete bar.dataset.reading;
+  }
+  el('history-note').textContent = readoutFor(dayRows[i]);
+}
+
+function stopReading() {
+  window.clearTimeout(readingTimer);
+  readingTimer = null;
+  for (const bar of bars.children) delete bar.dataset.reading;
+  el('history-note').textContent = restingNote;
+}
+
+function readingIndex() {
+  return [...bars.children].findIndex((bar) => bar.dataset.reading === 'true');
+}
+
+// Which day sits under this x, measured across the whole strip rather than per bar, so
+// the 2px gaps between bars are not dead ground on the way past.
+function dayUnder(clientX) {
+  const box = bars.getBoundingClientRect();
+  return Math.floor(((clientX - box.left) / box.width) * dayRows.length);
+}
+
+bars.addEventListener('pointerdown', (event) => {
+  // Keeps the move events coming if the finger wanders off the strip mid drag. Capture
+  // throws if the pointer is already gone, and the reading matters more than the drag,
+  // so it must not take the tap down with it.
+  try {
+    bars.setPointerCapture(event.pointerId);
+  } catch {
+    /* no capture, so a drag leaving the strip stops there. The tap still reads. */
+  }
+  showDay(dayUnder(event.clientX));
+});
+
+bars.addEventListener('pointermove', (event) => {
+  // A mouse reads on hover. A finger has to be down, or the first touch of a scroll
+  // would leave a reading behind on the way past.
+  if (event.pointerType !== 'mouse' && event.buttons === 0) return;
+  showDay(dayUnder(event.clientX));
+});
+
+// A finger cannot hover, so lifting it has to leave the reading up long enough to read.
+// Four seconds is what the rank line above already uses.
+bars.addEventListener('pointerup', (event) => {
+  if (event.pointerType === 'mouse') return;
+  readingTimer = window.setTimeout(stopReading, 4000);
+});
+
+bars.addEventListener('pointerleave', (event) => {
+  if (event.pointerType === 'mouse') stopReading();
+});
+
+/*
+ * The keyboard equivalent. One tab stop for the whole chart rather than 90, with the
+ * arrows walking along it: 90 stops between the chart and the footer would be a wall.
+ *
+ * The note is only a live region while the chart has focus. Left announcing all the time
+ * it would read the typical-day line out after every press, on top of the rank line.
+ */
+bars.addEventListener('focus', () => {
+  el('history-note').setAttribute('aria-live', 'polite');
+});
+
+bars.addEventListener('blur', () => {
+  el('history-note').setAttribute('aria-live', 'off');
+  stopReading();
+});
+
+bars.addEventListener('keydown', (event) => {
+  if (!dayRows.length) return;
+  const at = readingIndex();
+
+  switch (event.key) {
+    case 'ArrowRight':
+      // Arriving with nothing selected starts at today, the day being asked about most.
+      showDay(at === -1 ? dayRows.length - 1 : at + 1);
+      break;
+    case 'ArrowLeft':
+      showDay(at === -1 ? dayRows.length - 1 : at - 1);
+      break;
+    case 'Home':
+      showDay(0);
+      break;
+    case 'End':
+      showDay(dayRows.length - 1);
+      break;
+    case 'Escape':
+      stopReading();
+      break;
+    default:
+      return;   // every other key still belongs to the page
+  }
+  event.preventDefault();
 });
 
 el('gate-form').addEventListener('submit', (event) => {

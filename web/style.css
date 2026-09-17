@@ -436,6 +436,9 @@ body {
   width: 100%;
   padding-bottom: 5px;   /* room for the today marker below the baseline */
   overflow: hidden;      /* bars only: no text is clipped here */
+  /* Dragging across reads the days out. pan-y, not none, so a finger that starts on the
+     chart can still scroll the page vertically. */
+  touch-action: pan-y;
 }
 
 .day {
@@ -454,6 +457,24 @@ body {
   gap: 2px;
 }
 .day[data-weekend="true"] { opacity: 0.55; }
+
+/*
+ * The day being read. A 1.73px bar cannot highlight itself, so the mark is the column
+ * behind it, running the full height of the strip and legible at any bar width.
+ *
+ * 70% of the soft text token rather than a wash: the column is only as wide as the bar,
+ * so this reads as a thin rule rather than a block, and it is the only thing saying
+ * which day the line underneath belongs to. At 22% it measured 1.38:1 against the ground
+ * in light, which is to say invisible. 70% clears the 3:1 an indicator needs in both
+ * themes, at 3.33:1 light and 4.56:1 dark.
+ *
+ * After the weekend rule on purpose, so a weekend being read comes back to full strength
+ * instead of staying dimmed.
+ */
+.day[data-reading="true"] {
+  opacity: 1;
+  background: color-mix(in srgb, var(--text-soft) 70%, transparent);
+}
 
 .seg { border-radius: 1px; min-height: 2px; }
 .seg-people { background: var(--series-people); }
