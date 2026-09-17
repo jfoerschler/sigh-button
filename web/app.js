@@ -187,7 +187,7 @@ function renderHistory(payload) {
   const peak = days.reduce((max, day) => Math.max(max, day.total ?? 0), 0);
   if (peak === 0) {
     bars.setAttribute('aria-label', 'No days to chart yet');
-    note.textContent = 'Nothing to chart yet. Days appear once three people press on them.';
+    note.textContent = 'Nothing to chart yet. A quiet day appears here once it is past.';
     return;
   }
 
@@ -203,7 +203,7 @@ function renderHistory(payload) {
     if (day.day === payload.today) bar.dataset.today = 'true';
     bar.title = day.shown
       ? `${day.day}: ${people} ${people === 1 ? 'person' : 'people'}, ${total} ${total === 1 ? 'press' : 'presses'}`
-      : `${day.day}: too few to show`;
+      : `${day.day}: too few to show yet`;
 
     if (total === 0) {
       // Nothing happened, so mark the day without claiming anyone pressed.
@@ -237,7 +237,10 @@ function renderHistory(payload) {
       : 'Daily counts for the last 90 days.',
   );
 
-  const counts = shownDays.map((day) => day.uniques);
+  // Days nobody pressed are disclosed now that past days are, and counting them here
+  // would drag the typical day toward zero for any room that is only used on weekdays.
+  // A day with one person on it does belong in it, which is the point of showing them.
+  const counts = shownDays.filter((day) => day.total > 0).map((day) => day.uniques);
   const median = counts.length
     ? [...counts].sort((a, b) => a - b)[Math.floor(counts.length / 2)]
     : null;

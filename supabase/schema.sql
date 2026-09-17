@@ -144,23 +144,43 @@ begin
 
   -- Every day in the window, including days nobody pressed. A gap and a zero mean
   -- different things, and the chart should not have to guess which it is looking at.
+  --
+  -- The three person threshold applies to today only.
+  --
+  -- What makes a count of one re-identifying is knowing who is at their desk right now:
+  -- on a small team, "one person has sighed today" beside a half empty office names
+  -- somebody. Once the day is over that pairing is gone.
+  --
+  -- What is left is the cost of hiding it. A day the chart will not draw is a day that
+  -- looks like nobody was there, and the one or two people who did press are exactly the
+  -- ones who needed it counted. So a past day discloses whatever it was, however quiet.
+  --
+  -- Still decided in here rather than in the client, because a client side hide has
+  -- already shipped the real number to the browser.
   select json_agg(row_to_json(d) order by d.day)
     into v_result
     from (
       select
-        g.day::date as day,
-        coalesce(agg.uniques, 0) >= 3 as shown,
-        case when coalesce(agg.uniques, 0) >= 3 then agg.uniques end as uniques,
-        case when coalesce(agg.uniques, 0) >= 3 then agg.total   end as total
-      from generate_series((v_today - (v_days - 1))::timestamp,
-                               v_today::timestamp,
-                               interval '1 day') as g(day)
-      left join (
-        select day, count(*) as uniques, coalesce(sum(count), 0) as total
-          from pushes
-         where room_id = v_room.id
-         group by day
-      ) agg on agg.day = g.day::date
+        day,
+        disclose as shown,
+        case when disclose then uniques end as uniques,
+        case when disclose then total   end as total
+      from (
+        select
+          g.day::date               as day,
+          coalesce(agg.uniques, 0)  as uniques,
+          coalesce(agg.total, 0)    as total,
+          (g.day::date < v_today or coalesce(agg.uniques, 0) >= 3) as disclose
+        from generate_series((v_today - (v_days - 1))::timestamp,
+                                 v_today::timestamp,
+                                 interval '1 day') as g(day)
+        left join (
+          select day, count(*) as uniques, coalesce(sum(count), 0) as total
+            from pushes
+           where room_id = v_room.id
+           group by day
+        ) agg on agg.day = g.day::date
+      ) counted
     ) d;
 
   return json_build_object(
