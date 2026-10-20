@@ -38,6 +38,25 @@
   </button>
 </header>
 
+<!--
+  Shown in place of both screens while the database is paused, so the page says so once
+  instead of letting every press fail quietly. The switch is at the top of app.js.
+-->
+<main id="paused" class="screen" hidden>
+  <div class="gate">
+    <h1 class="gate-title">The Counter Is Paused</h1>
+    <p class="gate-note">
+      The database this counter runs on is paused, so nothing is being counted at the
+      moment.
+    </p>
+    <p class="gate-note">
+      If you would like it back on, ask the person who runs it. That is
+      <a href="https://github.com/jfoerschler">jfoerschler on GitHub</a>.
+    </p>
+    <p class="gate-note"><a href="about.html">What This Stores, and What It Does Not</a></p>
+  </div>
+</main>
+
 <!-- First visit, or after the phrase is cleared. -->
 <main id="gate" class="screen" hidden>
   <form id="gate-form" class="gate">

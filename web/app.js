@@ -11,6 +11,15 @@
  */
 
 /*
+ * The database is paused. While this is true the page shows the paused notice instead of
+ * the gate or the counter, and makes no requests at all: a failed fetch on every load
+ * would only put in the console what the page already says on screen. Set it back to
+ * false when the database is running again, and nothing else needs to change. The stored
+ * phrase is left alone either way, so a group is still in place when it comes back.
+ */
+const PAUSED = true;
+
+/*
  * The page is served from sigh.holyhell.xyz and the API from sigh-worker.holyhell.xyz,
  * so every call is cross-origin. Development mirrors that rather than collapsing both
  * onto one port: the page runs on :8788 and the Worker on :8787, so a CORS mistake
@@ -416,6 +425,12 @@ function setPhraseLabel(text) {
   coverPhrase();
 }
 
+function showPaused() {
+  gate.hidden = true;
+  counter.hidden = true;
+  el('paused').hidden = false;
+}
+
 function showGate(message) {
   phrase = null;
   forget(KEY_PHRASE);
@@ -624,5 +639,14 @@ el('leave').addEventListener('click', () => {
   showGate(null);
 });
 
-phrase = read(KEY_PHRASE);
-if (phrase) showCounter(); else showGate(null);
+/*
+ * showGate clears the stored phrase, so the paused screen is its own branch rather than
+ * a message passed to the gate: being told the counter is off should not also cost you
+ * the phrase you would need to get back in.
+ */
+if (PAUSED) {
+  showPaused();
+} else {
+  phrase = read(KEY_PHRASE);
+  if (phrase) showCounter(); else showGate(null);
+}
